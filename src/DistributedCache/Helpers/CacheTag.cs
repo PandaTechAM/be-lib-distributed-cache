@@ -1,4 +1,4 @@
-﻿namespace CacheService.Helpers;
+﻿namespace DistributedCache.Helpers;
 
 public static class CacheTag
 {

@@ -1,4 +1,4 @@
-namespace CacheService.Options;
+namespace DistributedCache.Options;
 
 public enum KeyPrefix
 {

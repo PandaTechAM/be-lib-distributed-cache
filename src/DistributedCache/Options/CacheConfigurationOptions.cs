@@ -1,4 +1,4 @@
-﻿namespace CacheService.Options;
+﻿namespace DistributedCache.Options;
 
 public class CacheConfigurationOptions
 {
@@ -7,15 +7,8 @@ public class CacheConfigurationOptions
     public int ConnectRetry { get; set; } = 10;
     public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
     public TimeSpan SyncTimeout { get; set; } = TimeSpan.FromSeconds(5);
-
     public TimeSpan DistributedLockDuration { get; set; } = TimeSpan.FromSeconds(5);
-    public TimeSpan DefaultExpiration { get; set; } = TimeSpan.FromMinutes(5);
+    public TimeSpan DefaultExpiration { get; set; } = TimeSpan.FromMinutes(15);
     public CacheResetMode CacheResetMode { get; set; } = CacheResetMode.ResetFrequentTagsAfterHealthCheckFail;
-    public TimeSpan HealthCheckInterval { get; set; } = TimeSpan.FromMilliseconds(500);
-}
-
-public enum CacheResetMode
-{
-    None = 1,
-    ResetFrequentTagsAfterHealthCheckFail = 2
+    public TimeSpan HealthCheckInterval { get; set; } = TimeSpan.FromMilliseconds(100);
 }

@@ -1,4 +1,4 @@
-﻿namespace CacheService;
+﻿namespace DistributedCache;
 
 public class Class1
 {

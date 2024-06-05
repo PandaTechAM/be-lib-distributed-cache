@@ -1,4 +1,4 @@
-namespace CacheService.Services.Interfaces;
+namespace DistributedCache.Services.Interfaces;
 
 /// <summary>
 /// Interface for cache service operations.

@@ -1,7 +1,7 @@
 ﻿using MessagePack;
 using StackExchange.Redis.Extensions.Core;
 
-namespace CacheService.Serializers;
+namespace DistributedCache.Serializers;
 
 internal class RedisMsgPackObjectSerializer : ISerializer
 {

@@ -1,11 +1,11 @@
-﻿using CacheService.Helpers;
-using CacheService.Options;
-using CacheService.Services.Interfaces;
+﻿using DistributedCache.Helpers;
+using DistributedCache.Options;
+using DistributedCache.Services.Interfaces;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
-namespace CacheService.Services.Implementations;
+namespace DistributedCache.Services.Implementations;
 
 internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConfigurationOptions> options)
     : ICacheService<T>
@@ -20,7 +20,10 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
     public async ValueTask<T> GetOrCreateAsync(string key, Func<CancellationToken, ValueTask<T>> factory,
         TimeSpan? expiration = null, IReadOnlyCollection<string>? tags = null, CancellationToken token = default)
     {
-        var prefixedKey = GetPrefixedKey(key);
+        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+            ? KeyFormatHelper.GetPrefixedKey(key)
+            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
+
         var lockKey = $"{prefixedKey}:lock";
         var lockValue = Guid.NewGuid().ToString();
 
@@ -44,7 +47,6 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
                 await ReleaseLockAsync(lockKey, lockValue);
                 return cachedValue;
             }
-
             break;
         }
 
@@ -63,14 +65,19 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
 
     public async ValueTask<T?> GetAsync(string key, CancellationToken token = default)
     {
-        var prefixedKey = GetPrefixedKey(key);
+        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+            ? KeyFormatHelper.GetPrefixedKey(key)
+            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
+
         return await _redisDatabase.GetAsync<T>(prefixedKey);
     }
 
     public async ValueTask SetAsync(string key, T value, TimeSpan? expiration = null,
         IReadOnlyCollection<string>? tags = null, CancellationToken token = default)
     {
-        var prefixedKey = GetPrefixedKey(key);
+        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+            ? KeyFormatHelper.GetPrefixedKey(key)
+            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
 
         var expirationTime = expiration ?? _config.DefaultExpiration;
 
@@ -80,31 +87,43 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
         {
             foreach (var tag in tags)
             {
-                var tagKey = GetTagKey(tag);
-                await _redisDatabase.SetAddAsync(tagKey, key);
+                var tagKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+                    ? KeyFormatHelper.GetTagKey(tag)
+                    : KeyFormatHelper.GetTagKey(tag, _moduleName);
+
+                await _redisDatabase.SetAddAsync(tagKey, prefixedKey);
             }
         }
     }
 
     public async ValueTask RemoveByKeyAsync(string key, CancellationToken token = default)
     {
-        var prefixedKey = GetPrefixedKey(key);
+        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+            ? KeyFormatHelper.GetPrefixedKey(key)
+            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
+
         await _redisDatabase.RemoveAsync(prefixedKey);
     }
 
     public async ValueTask RemoveByKeysAsync(IEnumerable<string> keys, CancellationToken token = default)
     {
-        var prefixedKeys = GetPrefixedKeys(keys);
+        var prefixedKeys = _config.KeyPrefixForIsolation == KeyPrefix.None
+            ? KeyFormatHelper.GetPrefixedKeys(keys)
+            : KeyFormatHelper.GetPrefixedKeys(keys, _moduleName);
+
         await _redisDatabase.RemoveAllAsync(prefixedKeys.ToArray());
     }
 
     public async ValueTask RemoveByTagAsync(string tag, CancellationToken token = default)
     {
-        var tagKey = GetTagKey(tag);
+        var tagKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+            ? KeyFormatHelper.GetTagKey(tag)
+            : KeyFormatHelper.GetTagKey(tag, _moduleName);
+        
         var keys = await _redisDatabase.SetMembersAsync<string>(tagKey);
         if (keys.Length > 0)
         {
-            await RemoveByKeysAsync(keys, token);
+            await _redisDatabase.RemoveAllAsync(keys);
         }
 
         await _redisDatabase.RemoveAsync(tagKey);
@@ -140,17 +159,5 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
                 end";
 
         await _redisDatabase.Database.ScriptEvaluateAsync(script, [lockKey], [lockValue]);
-    }
-
-    private string GetPrefixedKey(string key)
-    {
-        return _config.KeyPrefixForIsolation == KeyPrefix.AssemblyNamePrefix ? $"{_moduleName}:{key}" : key;
-    }
-
-    private IEnumerable<string> GetPrefixedKeys(IEnumerable<string> keys) => keys.Select(GetPrefixedKey);
-
-    private string GetTagKey(string tag)
-    {
-        return tag == CacheTag.Frequent ? $"tags:{tag}" : $"tags:{_moduleName}:{tag}";
     }
 }

@@ -1,14 +1,14 @@
-﻿using CacheService.Options;
-using CacheService.Serializers;
-using CacheService.Services.Implementations;
-using CacheService.Services.Interfaces;
+﻿using DistributedCache.Options;
+using DistributedCache.Serializers;
+using DistributedCache.Services.Implementations;
+using DistributedCache.Services.Interfaces;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Configuration;
 
-namespace CacheService.Extensions;
+namespace DistributedCache.Extensions;
 
 public static class WebApplicationBuilderExtension
 {

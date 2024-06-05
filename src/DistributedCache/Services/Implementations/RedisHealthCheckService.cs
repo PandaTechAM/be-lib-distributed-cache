@@ -1,11 +1,11 @@
-﻿using CacheService.Helpers;
-using CacheService.Options;
+﻿using DistributedCache.Helpers;
+using DistributedCache.Options;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
-namespace CacheService.Services.Implementations;
+namespace DistributedCache.Services.Implementations;
 
 public class RedisHealthCheckService(
     IRedisClient redisClient,
@@ -15,10 +15,9 @@ public class RedisHealthCheckService(
 {
     private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
     private readonly CacheConfigurationOptions _config = options.Value;
-    private readonly PeriodicTimer _timer = new(options.Value.HealthCheckInterval);
     private bool _resetRedis;
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken) //todo test as not working
     {
         if (_config.CacheResetMode == CacheResetMode.None)
         {
@@ -27,10 +26,12 @@ public class RedisHealthCheckService(
             return;
         }
 
+        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
         logger.LogInformation("RedisHealthCheckService started");
 
-        while (await _timer.WaitForNextTickAsync(stoppingToken))
+        while (!stoppingToken.IsCancellationRequested)
         {
+            await Task.Delay(_config.HealthCheckInterval, stoppingToken);
             var healthyRedis = await CheckRedisHealthAsync();
 
             if (healthyRedis)
@@ -66,16 +67,17 @@ public class RedisHealthCheckService(
 
     private async Task<bool> RemoveByFrequentTagAsync()
     {
+        var key = KeyFormatHelper.GetTagKey(CacheTag.Frequent);
         try
         {
-            var keys = await _redisDatabase.SetMembersAsync<string>(CacheTag.Frequent);
+            var keys = await _redisDatabase.SetMembersAsync<string>(key);
 
             if (keys.Length > 0)
             {
                 await _redisDatabase.RemoveAllAsync(keys);
             }
 
-            await _redisDatabase.RemoveAsync(CacheTag.Frequent);
+            await _redisDatabase.RemoveAsync(key);
             return true;
         }
         catch (Exception ex)

@@ -1,4 +1,4 @@
-namespace CacheService.Tests;
+namespace DistributedCache.Tests;
 
 public class UnitTest1
 {
