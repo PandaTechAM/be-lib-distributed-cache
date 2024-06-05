@@ -1,4 +1,4 @@
-﻿namespace PandaNuGet;
+﻿namespace CacheService;
 
 public class Class1
 {

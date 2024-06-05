@@ -1,4 +1,4 @@
-namespace PandaNuGet.Tests;
+namespace CacheService.Tests;
 
 public class UnitTest1
 {

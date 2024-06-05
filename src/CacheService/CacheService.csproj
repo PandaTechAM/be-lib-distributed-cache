@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackageIcon>pandatech.png</PackageIcon>
+        <PackageReadmeFile>Readme.md</PackageReadmeFile>
+        <Authors>Pandatech</Authors>
+        <Copyright>MIT</Copyright>
+        <Version>1.0.0</Version>
+        <PackageId>Pandatech.CacheService</PackageId>
+        <Title>Pandatech Cache Service</Title>
+        <PackageTags>Pandatech, library, redis, distributed locks, cache</PackageTags>
+        <Description>Pandatech Cache Service is a comprehensive caching library designed for .NET applications, leveraging the power of Redis. It provides easy-to-use and highly configurable caching mechanisms, including support for tagged cache entries, customizable expiration policies, and robust health check services. The library also features built-in distributed lock mechanisms to ensure data consistency and prevent cache stampedes. This ensures high performance, scalability, and reliability, making it an ideal choice for enterprise-level distributed caching needs.</Description>
+        <RepositoryUrl>https://github.com/PandaTechAM/be-lib-cache-service</RepositoryUrl>
+        <PackageReleaseNotes>InitialCommit</PackageReleaseNotes>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\..\pandatech.png" Pack="true" PackagePath="\"/>
+        <None Include="..\..\Readme.md" Pack="true" PackagePath="\"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MessagePack" Version="2.5.140"/>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.6"/>
+        <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="10.2.0"/>
+        <PackageReference Include="StackExchange.Redis.Extensions.MsgPack" Version="10.2.0"/>
+    </ItemGroup>
+
+</Project>
