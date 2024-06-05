@@ -31,7 +31,7 @@ In your `Program.cs`, configure the cache service:
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddCacheService(options =>
+builder.AddDistributedCache(options =>
 {
     options.RedisConnectionString = "your_redis_connection_string"; //No default value and required
     options.ConnectRetry = 15; //Default is 10
@@ -213,12 +213,12 @@ public interface ICacheService<T> where T : class
 1. **Performance:** MessagePack is significantly faster compared to other serialization formats. For example, benchmarks
    show that MessagePack can be up to 4 times faster than JSON and 1.5 times faster than Protobuf in terms of
    serialization and deserialization speed.
-2. **Compact Size** MessagePack produces smaller payloads, which results in lower memory usage and faster data transfer
+2. **Compact Size:** MessagePack produces smaller payloads, which results in lower memory usage and faster data transfer
    over the network. On average, MessagePack serialized data is about 50% smaller than JSON and 20-30% smaller than
    Protobuf.
-3. **Human Readability in Tools** Many Redis clients, such as Another Redis Desktop Manager, can display MessagePack
+3. **Human Readability in Tools:** Many Redis clients, such as Another Redis Desktop Manager, can display MessagePack
    serialized data as JSON, making it easier for developers to inspect and debug the cache content.
-4. **Simplicity** By enforcing a single serialization format, we avoid the complexity and potential issues that can
+4. **Simplicity:** By enforcing a single serialization format, we avoid the complexity and potential issues that can
    arise from supporting multiple serializers. This decision simplifies the implementation and ensures consistent
    behavior across different parts of the application.
 
@@ -237,8 +237,12 @@ effectively.
 ## Acknowledgements
 
 Inspired by Microsoft's .NET 9 `HybridCache` and leveraging the power of `StackExchange.Redis`. `HybridCache` is in a
-preview state and is not recommended for production use. The main difference is that HybridCache is too general and also
+preview state and is not recommended for production use. The main difference is that `HybridCache` is too general and
+also
 uses L1 + L2 caching instead of only L2 caching.
+
+When the time comes and `HybridCache` will become stable, mature and feature rich, we will consider migrating to it with
+backward compatability.
 
 ## License
 

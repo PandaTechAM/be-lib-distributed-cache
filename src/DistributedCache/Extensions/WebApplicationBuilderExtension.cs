@@ -12,7 +12,7 @@ namespace DistributedCache.Extensions;
 
 public static class WebApplicationBuilderExtension
 {
-    public static WebApplicationBuilder AddCacheService(this WebApplicationBuilder builder,
+    public static WebApplicationBuilder AddDistributedCache(this WebApplicationBuilder builder,
         Action<CacheConfigurationOptions> configureOptions)
     {
         builder.Services.Configure(configureOptions);

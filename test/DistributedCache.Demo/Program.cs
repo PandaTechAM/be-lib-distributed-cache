@@ -9,7 +9,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<CacheTestsService>();
 
-builder.AddCacheService(o =>
+builder.AddDistributedCache(o =>
 {
     o.RedisConnectionString = "localhost:6379";
     o.KeyPrefixForIsolation = KeyPrefix.AssemblyNamePrefix;
