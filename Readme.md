@@ -228,11 +228,11 @@ effectively.
 **Benchmark Comparison**
 -------------------------
 
-| Format      | Serialization Speed    | Deserialization Speed  | Serialized Size |
-|-------------|------------------------|------------------------|-----------------|
-| MessagePack | 	4x faster than JSON   | 	3x faster than JSON   | 	~50% of JSON   |
-| Protobuf    | 	1.5x faster than JSON | 	1.2x faster than JSON | 	~70% of JSON   |
-| JSON        | 	Baseline              | 	Baseline              | 	Baseline       |
+| Format      | Serialization Speed   | Deserialization Speed | Serialized Size |
+|-------------|-----------------------|-----------------------|-----------------|
+| MessagePack | 4x faster than JSON   | 3x faster than JSON   | ~50% of JSON    |
+| Protobuf    | 1.5x faster than JSON | 1.2x faster than JSON | ~70% of JSON    |
+| JSON        | Baseline              | Baseline              | Baseline        |
 
 ## Acknowledgements
 
