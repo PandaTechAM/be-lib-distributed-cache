@@ -9,7 +9,6 @@ caching solution with advanced features such as typed cache services, distribute
 
 - **Typed Cache Service:** Supports strongly-typed caching with MessagePack serialization.
 - **Distributed Locking:** Ensures data consistency with distributed locks.
-- **Health Checks:** Monitors Redis availability and handles cache reset scenarios.
 - **Key Isolation:** Modular monolith support by prefixing keys with assembly names.
 - **Stampede Protection:** Protects against cache stampede in the `GetOrCreateAsync` method.
 - **No Serializer Override:** Enforces MessagePack serialization for performance and readability.
@@ -40,8 +39,6 @@ builder.AddDistributedCache(options =>
     options.DistributedLockDuration = TimeSpan.FromSeconds(5); //Default is 5 seconds
     options.DefaultExpiration = TimeSpan.FromMinutes(5); //Default is 15 minutes
     options.CacheResetMode = CacheResetMode.ResetFrequentTagsAfterHealthCheckFail; //Default is ResetAllAfterHealthCheckFail
-    options.HealthCheckInterval = TimeSpan.FromSeconds(1); //Default is 100 milliseconds
-    options.KeyPrefixForIsolation = KeyPrefix.AssemblyNamePrefix //Default is None
 });
 
 var app = builder.Build();
@@ -55,16 +52,6 @@ cross ClassLibrary cache access.
 
 ```csharp
 options.KeyPrefixForIsolation = KeyPrefix.AssemblyNamePrefix;
-```
-
-**Health Check Service**
-
-The `RedisHealthCheckService` monitors Redis availability and resets cache entries tagged as `Frequent` after a Redis
-outage:
-
-```csharp
- options.CacheResetMode = CacheResetMode.ResetFrequentTagsAfterHealthCheckFail;
- options.HealthCheckInterval = TimeSpan.FromMilliseconds(100);
 ```
 
 ### 2. Cached Entity Preparation
@@ -99,13 +86,13 @@ public class CacheTestsService(ICacheService<TestCacheEntity> cacheService)
         await cacheService.GetOrCreateAsync("test2",
            async _ => await GetFromPostgres(token),
            TimeSpan.FromMinutes(1),
-           [CacheTag.Frequent],
+           ["vazgen"],
            token);
         
         await cacheService.GetOrCreateAsync("test3",
            async _ => await GetFromPostgres(token),
            TimeSpan.FromMinutes(1),
-           ["test", CacheTag.Frequent],
+           ["test", "vazgen"],
            token);
     }
 

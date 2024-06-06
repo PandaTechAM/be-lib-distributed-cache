@@ -11,8 +11,11 @@ internal static class KeyFormatHelper
     internal static IEnumerable<string> GetPrefixedKeys(IEnumerable<string> keys) => keys.Select(GetPrefixedKey);
 
     internal static string GetTagKey(string tag) => $"tags:{tag}";
+    
+    internal static string GetTagKey(string tag, string moduleName) => $"tags:{moduleName}:{tag}";
 
-    internal static string GetTagKey(string tag, string moduleName)
+    internal static string GetLockKey(string key) => $"{key}:lock";
+    private static string GetTagKey(string tag, string moduleName, object somethingForNoConflict) //Discontinued feature
     {
         return tag == CacheTag.Frequent ? $"tags:{tag}" : $"tags:{moduleName}:{tag}";
     }

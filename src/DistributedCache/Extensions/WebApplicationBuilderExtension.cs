@@ -37,7 +37,7 @@ public static class WebApplicationBuilderExtension
         var redisConfiguration = new RedisConfiguration { ConnectionString = configurations.RedisConnectionString };
 
         builder.Services.AddStackExchangeRedisExtensions<RedisMsgPackObjectSerializer>(redisConfiguration);
-        builder.Services.AddHostedService<RedisHealthCheckService>();
+        //builder.Services.AddHostedService<RedisHealthCheckService>(); //Discontinued feature
 
         return builder;
     }
@@ -78,7 +78,7 @@ public static class WebApplicationBuilderExtension
             }
 
             if (options.CacheResetMode == CacheResetMode.ResetFrequentTagsAfterHealthCheckFail &&
-                options.HealthCheckInterval <= TimeSpan.Zero)
+                options.HealthCheckInterval <= TimeSpan.Zero) //Discontinued feature
             {
                 throw new ArgumentException(
                     "AddCacheService options: HealthCheckInterval must be greater than 0 when CacheResetMode is ResetFrequentTagsAfterHealthCheckFail.");

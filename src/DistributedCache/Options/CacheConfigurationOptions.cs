@@ -9,6 +9,7 @@ public class CacheConfigurationOptions
     public TimeSpan SyncTimeout { get; set; } = TimeSpan.FromSeconds(5);
     public TimeSpan DistributedLockDuration { get; set; } = TimeSpan.FromSeconds(5);
     public TimeSpan DefaultExpiration { get; set; } = TimeSpan.FromMinutes(15);
-    public CacheResetMode CacheResetMode { get; set; } = CacheResetMode.ResetFrequentTagsAfterHealthCheckFail;
-    public TimeSpan HealthCheckInterval { get; set; } = TimeSpan.FromMilliseconds(100);
+    
+    internal CacheResetMode CacheResetMode { get; set; } = CacheResetMode.ResetFrequentTagsAfterHealthCheckFail; //Discontinued feature
+    internal TimeSpan HealthCheckInterval { get; set; } = TimeSpan.FromMilliseconds(100); //Discontinued feature
 }

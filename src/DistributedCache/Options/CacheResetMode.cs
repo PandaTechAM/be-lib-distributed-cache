@@ -1,6 +1,6 @@
 namespace DistributedCache.Options;
 
-public enum CacheResetMode
+internal enum CacheResetMode //Discontinued feature
 {
     None = 1,
     ResetFrequentTagsAfterHealthCheckFail = 2

@@ -1,6 +1,6 @@
 ﻿namespace DistributedCache.Helpers;
 
-public static class CacheTag
+internal static class CacheTag //Discontinued feature
 {
     public const string Frequent = "Frequent";
 }

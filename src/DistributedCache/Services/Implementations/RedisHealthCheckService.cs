@@ -10,14 +10,14 @@ namespace DistributedCache.Services.Implementations;
 public class RedisHealthCheckService(
     IRedisClient redisClient,
     ILogger<RedisHealthCheckService> logger,
-    IOptions<CacheConfigurationOptions> options)
+    IOptions<CacheConfigurationOptions> options) // Discontinued Feature
     : BackgroundService
 {
     private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
     private readonly CacheConfigurationOptions _config = options.Value;
     private bool _resetRedis;
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken) //todo test as not working
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (_config.CacheResetMode == CacheResetMode.None)
         {

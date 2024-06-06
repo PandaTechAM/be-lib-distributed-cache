@@ -17,13 +17,13 @@ public class CacheTestsService(ICacheService<TestCacheEntity> cacheService)
         await cacheService.GetOrCreateAsync("test2",
            async _ => await GetFromPostgres(token),
            TimeSpan.FromMinutes(1),
-           [CacheTag.Frequent],
+           ["vazgen"],
            token);
         
         await cacheService.GetOrCreateAsync("test3",
            async _ => await GetFromPostgres(token),
            TimeSpan.FromMinutes(1),
-           ["test", CacheTag.Frequent],
+           ["test", "vazgen"],
            token);
          
     }

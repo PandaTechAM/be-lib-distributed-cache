@@ -15,7 +15,7 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
     private readonly CacheConfigurationOptions _config = options.Value;
     private readonly string _moduleName = typeof(T).Assembly.GetName().Name!;
     private readonly TimeSpan _lockExpiry = options.Value.DistributedLockDuration;
-    private readonly TimeSpan _lockRetryDelay = TimeSpan.FromMilliseconds(20);
+    private readonly TimeSpan _lockRetryDelay = TimeSpan.FromMilliseconds(10);
 
     public async ValueTask<T> GetOrCreateAsync(string key, Func<CancellationToken, ValueTask<T>> factory,
         TimeSpan? expiration = null, IReadOnlyCollection<string>? tags = null, CancellationToken token = default)
@@ -24,14 +24,27 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
             ? KeyFormatHelper.GetPrefixedKey(key)
             : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
 
-        var lockKey = $"{prefixedKey}:lock";
+        var lockKey = KeyFormatHelper.GetLockKey(prefixedKey);
         var lockValue = Guid.NewGuid().ToString();
 
         while (true)
         {
             token.ThrowIfCancellationRequested();
 
-            // Acquire lock before getting the value
+            var isLocked = await _redisDatabase.Database.KeyExistsAsync(lockKey);
+
+            if (isLocked)
+            {
+                await WaitForLockReleaseAsync(lockKey, token);
+                continue;
+            }
+
+            var cachedValue = await _redisDatabase.GetAsync<T>(prefixedKey);
+            if (cachedValue != null)
+            {
+                return cachedValue;
+            }
+
             var lockAcquired = await AcquireLockAsync(lockKey, lockValue);
 
             if (!lockAcquired)
@@ -40,13 +53,6 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
                 continue;
             }
 
-            var cachedValue = await _redisDatabase.GetAsync<T>(prefixedKey);
-
-            if (cachedValue != null)
-            {
-                await ReleaseLockAsync(lockKey, lockValue);
-                return cachedValue;
-            }
             break;
         }
 
@@ -58,7 +64,6 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
         }
         finally
         {
-            // Release the lock
             await ReleaseLockAsync(lockKey, lockValue);
         }
     }
@@ -119,7 +124,7 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
         var tagKey = _config.KeyPrefixForIsolation == KeyPrefix.None
             ? KeyFormatHelper.GetTagKey(tag)
             : KeyFormatHelper.GetTagKey(tag, _moduleName);
-        
+
         var keys = await _redisDatabase.SetMembersAsync<string>(tagKey);
         if (keys.Length > 0)
         {
