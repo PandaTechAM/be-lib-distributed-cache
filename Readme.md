@@ -38,7 +38,6 @@ builder.AddDistributedCache(options =>
     options.SyncTimeout = TimeSpan.FromSeconds(5); //Default is 5 seconds
     options.DistributedLockDuration = TimeSpan.FromSeconds(5); //Default is 5 seconds
     options.DefaultExpiration = TimeSpan.FromMinutes(5); //Default is 15 minutes
-    options.CacheResetMode = CacheResetMode.ResetFrequentTagsAfterHealthCheckFail; //Default is ResetAllAfterHealthCheckFail
 });
 
 var app = builder.Build();
