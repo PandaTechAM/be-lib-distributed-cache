@@ -1,4 +1,7 @@
-﻿namespace CacheService.Demo;
+﻿using CacheService.Demo.TestRateLimiting;
+using Microsoft.AspNetCore.Mvc;
+
+namespace CacheService.Demo;
 
 public static class Endpoints
 {
@@ -20,6 +23,12 @@ public static class Endpoints
         {
             await service.DeleteCache();
             return TypedResults.Ok();
+        });
+
+        app.MapPost("/send-sms", async ([FromServices] SendSmsService service, CancellationToken token) =>
+        {
+            var result = await service.SendSms(token);
+            return TypedResults.Ok(result);
         });
 
         return app;

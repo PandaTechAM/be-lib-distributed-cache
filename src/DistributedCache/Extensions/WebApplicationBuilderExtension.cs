@@ -33,8 +33,14 @@ public static class WebApplicationBuilderExtension
         builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisOptions));
 
         builder.Services.AddSingleton(typeof(ICacheService<>), typeof(RedisCacheService<>));
+        builder.Services.AddSingleton<RedisLockService>();
+        builder.Services.AddScoped<IRateLimitService, RedisRateLimitService>();
 
-        var redisConfiguration = new RedisConfiguration { ConnectionString = configurations.RedisConnectionString };
+        var redisConfiguration = new RedisConfiguration
+        {
+            ConnectionString = configurations.RedisConnectionString,
+            Name = "DistributedCacheConfiguration"
+        };
 
         builder.Services.AddStackExchangeRedisExtensions<RedisMsgPackObjectSerializer>(redisConfiguration);
         //builder.Services.AddHostedService<RedisHealthCheckService>(); //Discontinued feature
