@@ -3,12 +3,13 @@
 Pandatech.DistributedCache is a .NET library providing an efficient and performant abstraction layer over
 `StackExchange.Redis`, specifically designed for .NET applications. This library builds on top of
 `StackExchange.Redis.Extensions.AspNetCore` and `StackExchange.Redis.Extensions.MsgPack` to offer a robust, easy-to-use
-caching solution with advanced features such as typed cache services, distributed locking, and health checks.
+caching solution with advanced features such as typed cache services, distributed locking, business logic rate limiting.
 
 ## Features
 
 - **Typed Cache Service:** Supports strongly-typed caching with MessagePack serialization.
 - **Distributed Locking:** Ensures data consistency with distributed locks.
+- **Distributed Rate Limiting:** Prevents cache abuse with rate limiting based on business logic.
 - **Key Isolation:** Modular monolith support by prefixing keys with assembly names.
 - **Stampede Protection:** Protects against cache stampede in the `GetOrCreateAsync` method.
 - **No Serializer Override:** Enforces MessagePack serialization for performance and readability.
@@ -191,6 +192,53 @@ public interface ICacheService<T> where T : class
    ValueTask RemoveByTagsAsync(IEnumerable<string> tags, CancellationToken token = default);
 }
 ```
+
+### 5. Rate Limiting
+
+Implement rate limiting using `IRateLimitService` and `RateLimitConfiguration`.
+
+**Define Rate Limiting Configuration**
+
+```csharp
+public enum ActionType //your business logic actions
+{
+    SmsForTfa = 1,
+    EmailForTfa = 2
+}
+
+public static class RateLimitingConfigurations //your shared rate limiting configuration
+{
+    public static RateLimitConfiguration GetSmsConfig()
+    {
+        return new RateLimitConfiguration
+        {
+            ActionType = (int)ActionType.SmsForTfa,
+            MaxAttempts = 2,
+            TimeToLive = TimeSpan.FromSeconds(10)
+        };
+    }
+}
+```
+
+**Implement Rate Limiting in the service**
+
+```csharp
+using DistributedCache.Dtos;
+using DistributedCache.Services.Interfaces;
+
+public class SendSmsService(IRateLimitService rateLimitService)
+{
+    public async Task<RateLimitState> SendSms(CancellationToken cancellationToken = default)
+    {
+        var phoneNumber = "1234567890";
+        var rateLimitConfiguration = RateLimitingConfigurations.GetSmsConfig().SetIdentifiers(phoneNumber);
+
+        return await rateLimitService.RateLimitAsync(rateLimitConfiguration, cancellationToken);
+    }
+}
+```
+
+Based on rate limit state you can throw exception/return 427 or proceed with the business logic.
 
 ## Enforced MessagePack Serialization
 

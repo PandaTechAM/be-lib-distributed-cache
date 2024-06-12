@@ -1,4 +1,5 @@
-﻿using DistributedCache.Helpers;
+﻿using DistributedCache.Dtos;
+using DistributedCache.Helpers;
 using DistributedCache.Options;
 using DistributedCache.Services.Interfaces;
 using Microsoft.Extensions.Options;
@@ -7,15 +8,16 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace DistributedCache.Services.Implementations;
 
-internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConfigurationOptions> options)
+internal class RedisCacheService<T>(
+    IRedisClient redisClient,
+    IOptions<CacheConfigurationOptions> options,
+    RedisLockService lockService)
     : ICacheService<T>
     where T : class, ICacheEntity
 {
     private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
     private readonly CacheConfigurationOptions _config = options.Value;
     private readonly string _moduleName = typeof(T).Assembly.GetName().Name!;
-    private readonly TimeSpan _lockExpiry = options.Value.DistributedLockDuration;
-    private readonly TimeSpan _lockRetryDelay = TimeSpan.FromMilliseconds(10);
 
     public async ValueTask<T> GetOrCreateAsync(string key, Func<CancellationToken, ValueTask<T>> factory,
         TimeSpan? expiration = null, IReadOnlyCollection<string>? tags = null, CancellationToken token = default)
@@ -24,18 +26,18 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
             ? KeyFormatHelper.GetPrefixedKey(key)
             : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
 
-        var lockKey = KeyFormatHelper.GetLockKey(prefixedKey);
+
         var lockValue = Guid.NewGuid().ToString();
 
         while (true)
         {
             token.ThrowIfCancellationRequested();
 
-            var isLocked = await _redisDatabase.Database.KeyExistsAsync(lockKey);
+            var isLocked = await lockService.CheckForLockAsync(prefixedKey);
 
             if (isLocked)
             {
-                await WaitForLockReleaseAsync(lockKey, token);
+                await lockService.WaitForLockReleaseAsync(prefixedKey, token);
                 continue;
             }
 
@@ -45,11 +47,11 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
                 return cachedValue;
             }
 
-            var lockAcquired = await AcquireLockAsync(lockKey, lockValue);
+            var lockAcquired = await lockService.AcquireLockAsync(prefixedKey, lockValue);
 
             if (!lockAcquired)
             {
-                await WaitForLockReleaseAsync(lockKey, token);
+                await lockService.WaitForLockReleaseAsync(prefixedKey, token);
                 continue;
             }
 
@@ -64,7 +66,7 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
         }
         finally
         {
-            await ReleaseLockAsync(lockKey, lockValue);
+            await lockService.ReleaseLockAsync(prefixedKey, lockValue);
         }
     }
 
@@ -138,31 +140,5 @@ internal class RedisCacheService<T>(IRedisClient redisClient, IOptions<CacheConf
     {
         var tasks = tags.Select(tag => RemoveByTagAsync(tag, token).AsTask());
         await Task.WhenAll(tasks);
-    }
-
-    private async Task<bool> AcquireLockAsync(string lockKey, string lockValue)
-    {
-        return await _redisDatabase.Database.StringSetAsync(lockKey, lockValue, _lockExpiry, When.NotExists);
-    }
-
-    private async Task WaitForLockReleaseAsync(string lockKey, CancellationToken token)
-    {
-        while (await _redisDatabase.Database.KeyExistsAsync(lockKey) && !token.IsCancellationRequested)
-        {
-            await Task.Delay(_lockRetryDelay, token);
-        }
-    }
-
-    private async Task ReleaseLockAsync(string lockKey, string lockValue)
-    {
-        // Check if the current instance owns the lock before releasing it
-        const string script = @"
-                if redis.call('GET', KEYS[1]) == ARGV[1] then
-                    return redis.call('DEL', KEYS[1])
-                else
-                    return 0
-                end";
-
-        await _redisDatabase.Database.ScriptEvaluateAsync(script, [lockKey], [lockValue]);
     }
 }
