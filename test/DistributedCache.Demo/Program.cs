@@ -11,6 +11,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<CacheTestsService>();
 builder.Services.AddScoped<SendSmsService>();
 
+
 builder.AddDistributedCache(o =>
 {
     o.RedisConnectionString = "localhost:6379";
