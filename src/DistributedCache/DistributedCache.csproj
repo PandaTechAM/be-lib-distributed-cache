@@ -8,7 +8,7 @@
         <PackageReadmeFile>Readme.md</PackageReadmeFile>
         <Authors>Pandatech</Authors>
         <Copyright>MIT</Copyright>
-        <Version>1.2.1</Version>
+        <Version>1.2.2</Version>
         <PackageId>Pandatech.DistributedCache</PackageId>
         <Title>Pandatech Distributed Cache</Title>
         <PackageTags>Pandatech, library, redis, distributed locks, cache</PackageTags>

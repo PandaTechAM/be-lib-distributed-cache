@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Diagnostics;
+using System.Reflection;
 using DistributedCache.Dtos;
 using DistributedCache.Enums;
 using DistributedCache.Helpers;
@@ -17,15 +18,14 @@ public class RedisRateLimitService(
    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
    private readonly CacheConfigurationOptions _config = options.Value;
 
-   private readonly string _moduleName = Assembly.GetCallingAssembly()
-                                                 .GetName().Name!;
-
    public async ValueTask<RateLimitState> RateLimitAsync(RateLimitConfiguration rateLimitConfiguration,
       CancellationToken cancellationToken = default)
    {
+      var assemblyName = GetCallingAssemblyName();
+      
       var key = _config.KeyPrefixForIsolation == KeyPrefix.None
          ? KeyFormatHelper.GetPrefixedKey(rateLimitConfiguration.GetKey())
-         : KeyFormatHelper.GetPrefixedKey(rateLimitConfiguration.GetKey(), _moduleName);
+         : KeyFormatHelper.GetPrefixedKey(rateLimitConfiguration.GetKey(), assemblyName);
 
 
       var lockValue = Guid.NewGuid()
@@ -93,5 +93,19 @@ public class RedisRateLimitService(
       {
          await lockService.ReleaseLockAsync(key, lockValue);
       }
+   }
+   
+   private static string GetCallingAssemblyName()
+   {
+      var stackTrace = new StackTrace();
+      foreach (var frame in stackTrace.GetFrames())
+      {
+         var method = frame.GetMethod();
+         if (method != null && method.DeclaringType != typeof(RedisRateLimitService))
+         {
+            return method.DeclaringType!.Assembly.GetName().Name!;
+         }
+      }
+      return Assembly.GetExecutingAssembly().GetName().Name!;
    }
 }
