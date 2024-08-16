@@ -1,10 +1,9 @@
-﻿using DistributedCache.Services.Interfaces;
-using MessagePack;
+﻿using MessagePack;
 
 namespace DistributedCache.Dtos;
 
 [MessagePackObject]
-public class RateLimitCache : ICacheEntity
+public class RateLimitCache
 {
     [Key(0)] public int Attempts { get;  set; } = 1;
     [Key(1)] public int MaxAttempts { get;  init; } 
