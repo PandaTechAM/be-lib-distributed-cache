@@ -17,8 +17,8 @@ public class RedisRateLimitService(
    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
    private readonly CacheConfigurationOptions _config = options.Value;
 
-   private readonly string _moduleName = Assembly.GetExecutingAssembly()
-                                                 .FullName!;
+   private readonly string _moduleName = Assembly.GetCallingAssembly()
+                                                 .GetName().Name!;
 
    public async ValueTask<RateLimitState> RateLimitAsync(RateLimitConfiguration rateLimitConfiguration,
       CancellationToken cancellationToken = default)
