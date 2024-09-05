@@ -10,17 +10,16 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace DistributedCache.Services.Implementations;
 
-public class RedisRateLimitService(
+public class RedisRateLimitService<T>(
    IRedisClient redisClient,
    IOptions<CacheConfigurationOptions> options,
-   RedisLockService lockService) : IRateLimitService
+   RedisLockService lockService) : IRateLimitService<T>
+   where T : class
 {
    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
    private readonly CacheConfigurationOptions _config = options.Value;
-
-   private readonly string _moduleName = Assembly.GetCallingAssembly()
-                                                 .GetName()
-                                                 .Name!;
+   
+   private readonly string _moduleName = typeof(T).Assembly.GetName().Name!;
 
    public async ValueTask<RateLimitState> RateLimitAsync(RateLimitConfiguration rateLimitConfiguration,
       CancellationToken cancellationToken = default)

@@ -54,6 +54,11 @@ cross ClassLibrary cache access.
 options.KeyPrefixForIsolation = KeyPrefix.AssemblyNamePrefix;
 ```
 
+**Note:** Even if you don't use key prefixing, you still need to provide the class as a generic type (`T`) when using
+`IRateLimitService<T>`. The generic type `T` is used to retrieve the assembly name, which is important for key isolation. If
+you choose not to prefix keys by assembly name, this type is still required but will be ignored in the actual
+implementation.
+
 ### 2. Cached Entity Preparation
 
 Create your cache entity/model in order to inject it in the actual service:
@@ -226,7 +231,7 @@ public static class RateLimitingConfigurations //your shared rate limiting confi
 using DistributedCache.Dtos;
 using DistributedCache.Services.Interfaces;
 
-public class SendSmsService(IRateLimitService rateLimitService)
+public class SendSmsService(IRateLimitService<SendSmsService> rateLimitService)
 {
     public async Task<RateLimitState> SendSms(CancellationToken cancellationToken = default)
     {
