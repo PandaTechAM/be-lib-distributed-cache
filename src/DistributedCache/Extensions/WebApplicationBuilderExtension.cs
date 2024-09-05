@@ -33,8 +33,8 @@ public static class WebApplicationBuilderExtension
         builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisOptions));
 
         builder.Services.AddSingleton(typeof(ICacheService<>), typeof(RedisCacheService<>));
+        builder.Services.AddSingleton(typeof(IRateLimitService<>), typeof(RedisRateLimitService<>));
         builder.Services.AddSingleton<RedisLockService>();
-        builder.Services.AddScoped<IRateLimitService, RedisRateLimitService>();
 
         var redisConfiguration = new RedisConfiguration
         {

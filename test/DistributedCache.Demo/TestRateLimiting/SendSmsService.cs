@@ -3,7 +3,7 @@ using DistributedCache.Services.Interfaces;
 
 namespace CacheService.Demo.TestRateLimiting;
 
-public class SendSmsService(IRateLimitService rateLimitService)
+public class SendSmsService(IRateLimitService<SendSmsService> rateLimitService)
 {
     public async Task<RateLimitState> SendSms(CancellationToken cancellationToken = default)
     {
