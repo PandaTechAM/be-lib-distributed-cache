@@ -2,6 +2,6 @@ namespace DistributedCache.Options;
 
 public enum KeyPrefix
 {
-    None = 1,
-    AssemblyNamePrefix = 2
+   None = 1,
+   AssemblyNamePrefix = 2
 }
