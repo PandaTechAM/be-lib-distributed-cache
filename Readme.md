@@ -55,7 +55,8 @@ options.KeyPrefixForIsolation = KeyPrefix.AssemblyNamePrefix;
 ```
 
 **Note:** Even if you don't use key prefixing, you still need to provide the class as a generic type (`T`) when using
-`IRateLimitService<T>`. The generic type `T` is used to retrieve the assembly name, which is important for key isolation. If
+`IRateLimitService<T>`. The generic type `T` is used to retrieve the assembly name, which is important for key
+isolation. If
 you choose not to prefix keys by assembly name, this type is still required but will be ignored in the actual
 implementation.
 

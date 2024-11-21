@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Reflection;
-using DistributedCache.Dtos;
+﻿using DistributedCache.Dtos;
 using DistributedCache.Enums;
 using DistributedCache.Helpers;
 using DistributedCache.Options;
@@ -16,10 +14,12 @@ public class RedisRateLimitService<T>(
    RedisLockService lockService) : IRateLimitService<T>
    where T : class
 {
-   private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
    private readonly CacheConfigurationOptions _config = options.Value;
-   
-   private readonly string _moduleName = typeof(T).Assembly.GetName().Name!;
+
+   private readonly string _moduleName = typeof(T).Assembly.GetName()
+                                                  .Name!;
+
+   private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
 
    public async ValueTask<RateLimitState> RateLimitAsync(RateLimitConfiguration rateLimitConfiguration,
       CancellationToken cancellationToken = default)

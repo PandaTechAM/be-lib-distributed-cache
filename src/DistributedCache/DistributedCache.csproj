@@ -1,20 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PackageIcon>pandatech.png</PackageIcon>
         <PackageReadmeFile>Readme.md</PackageReadmeFile>
         <Authors>Pandatech</Authors>
         <Copyright>MIT</Copyright>
-        <Version>2.0.0</Version>
+        <Version>3.0.0</Version>
         <PackageId>Pandatech.DistributedCache</PackageId>
         <Title>Pandatech Distributed Cache</Title>
         <PackageTags>Pandatech, library, redis, distributed locks, cache</PackageTags>
         <Description>Pandatech.DistributedCache is a comprehensive caching library designed for .NET applications, leveraging the power of Redis. It provides easy-to-use and highly configurable caching mechanisms, including support for tagged cache entries, customizable expiration policies, and robust health check services. The library also features built-in distributed lock mechanisms to ensure data consistency and prevent cache stampedes. This ensures high performance, scalability, and reliability, making it an ideal choice for enterprise-level distributed caching needs.</Description>
         <RepositoryUrl>https://github.com/PandaTechAM/be-lib-distributed-cache</RepositoryUrl>
-        <PackageReleaseNotes>RateLimit interface change</PackageReleaseNotes>
+        <PackageReleaseNotes>.Net 9 Upgrade</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -23,8 +23,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="MessagePack" Version="2.5.172" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.8" />
+        <PackageReference Include="MessagePack" Version="2.5.192" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
         <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="10.2.0"/>
         <PackageReference Include="StackExchange.Redis.Extensions.MsgPack" Version="10.2.0"/>
     </ItemGroup>

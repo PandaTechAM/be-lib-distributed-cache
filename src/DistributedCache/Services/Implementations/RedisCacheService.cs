@@ -7,136 +7,147 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 namespace DistributedCache.Services.Implementations;
 
 internal class RedisCacheService<T>(
-    IRedisClient redisClient,
-    IOptions<CacheConfigurationOptions> options,
-    RedisLockService lockService)
-    : ICacheService<T>
-    where T : class, ICacheEntity
+   IRedisClient redisClient,
+   IOptions<CacheConfigurationOptions> options,
+   RedisLockService lockService)
+   : ICacheService<T>
+   where T : class, ICacheEntity
 {
-    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
-    private readonly CacheConfigurationOptions _config = options.Value;
-    private readonly string _moduleName = typeof(T).Assembly.GetName().Name!;
+   private readonly CacheConfigurationOptions _config = options.Value;
 
-    public async ValueTask<T> GetOrCreateAsync(string key, Func<CancellationToken, ValueTask<T>> factory,
-        TimeSpan? expiration = null, IReadOnlyCollection<string>? tags = null, CancellationToken token = default)
-    {
-        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
-            ? KeyFormatHelper.GetPrefixedKey(key)
-            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
+   private readonly string _moduleName = typeof(T).Assembly.GetName()
+                                                  .Name!;
+
+   private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
+
+   public async ValueTask<T> GetOrCreateAsync(string key,
+      Func<CancellationToken, ValueTask<T>> factory,
+      TimeSpan? expiration = null,
+      IReadOnlyCollection<string>? tags = null,
+      CancellationToken token = default)
+   {
+      var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+         ? KeyFormatHelper.GetPrefixedKey(key)
+         : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
 
 
-        var lockValue = Guid.NewGuid().ToString();
+      var lockValue = Guid.NewGuid()
+                          .ToString();
 
-        while (true)
-        {
-            token.ThrowIfCancellationRequested();
+      while (true)
+      {
+         token.ThrowIfCancellationRequested();
 
-            var isLocked = await lockService.CheckForLockAsync(prefixedKey);
+         var isLocked = await lockService.CheckForLockAsync(prefixedKey);
 
-            if (isLocked)
-            {
-                await lockService.WaitForLockReleaseAsync(prefixedKey, token);
-                continue;
-            }
+         if (isLocked)
+         {
+            await lockService.WaitForLockReleaseAsync(prefixedKey, token);
+            continue;
+         }
 
-            var cachedValue = await _redisDatabase.GetAsync<T>(prefixedKey);
-            if (cachedValue != null)
-            {
-                return cachedValue;
-            }
+         var cachedValue = await _redisDatabase.GetAsync<T>(prefixedKey);
+         if (cachedValue != null)
+         {
+            return cachedValue;
+         }
 
-            var lockAcquired = await lockService.AcquireLockAsync(prefixedKey, lockValue);
+         var lockAcquired = await lockService.AcquireLockAsync(prefixedKey, lockValue);
 
-            if (!lockAcquired)
-            {
-                await lockService.WaitForLockReleaseAsync(prefixedKey, token);
-                continue;
-            }
+         if (!lockAcquired)
+         {
+            await lockService.WaitForLockReleaseAsync(prefixedKey, token);
+            continue;
+         }
 
-            break;
-        }
+         break;
+      }
 
-        try
-        {
-            var value = await factory(token);
-            await SetAsync(key, value, expiration, tags, token);
-            return value;
-        }
-        finally
-        {
-            await lockService.ReleaseLockAsync(prefixedKey, lockValue);
-        }
-    }
+      try
+      {
+         var value = await factory(token);
+         await SetAsync(key, value, expiration, tags, token);
+         return value;
+      }
+      finally
+      {
+         await lockService.ReleaseLockAsync(prefixedKey, lockValue);
+      }
+   }
 
-    public async ValueTask<T?> GetAsync(string key, CancellationToken token = default)
-    {
-        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
-            ? KeyFormatHelper.GetPrefixedKey(key)
-            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
+   public async ValueTask<T?> GetAsync(string key, CancellationToken token = default)
+   {
+      var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+         ? KeyFormatHelper.GetPrefixedKey(key)
+         : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
 
-        return await _redisDatabase.GetAsync<T>(prefixedKey);
-    }
+      return await _redisDatabase.GetAsync<T>(prefixedKey);
+   }
 
-    public async ValueTask SetAsync(string key, T value, TimeSpan? expiration = null,
-        IReadOnlyCollection<string>? tags = null, CancellationToken token = default)
-    {
-        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
-            ? KeyFormatHelper.GetPrefixedKey(key)
-            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
+   public async ValueTask SetAsync(string key,
+      T value,
+      TimeSpan? expiration = null,
+      IReadOnlyCollection<string>? tags = null,
+      CancellationToken token = default)
+   {
+      var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+         ? KeyFormatHelper.GetPrefixedKey(key)
+         : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
 
-        var expirationTime = expiration ?? _config.DefaultExpiration;
+      var expirationTime = expiration ?? _config.DefaultExpiration;
 
-        await _redisDatabase.AddAsync(prefixedKey, value, expirationTime);
+      await _redisDatabase.AddAsync(prefixedKey, value, expirationTime);
 
-        if (tags != null)
-        {
-            foreach (var tag in tags)
-            {
-                var tagKey = _config.KeyPrefixForIsolation == KeyPrefix.None
-                    ? KeyFormatHelper.GetTagKey(tag)
-                    : KeyFormatHelper.GetTagKey(tag, _moduleName);
+      if (tags != null)
+      {
+         foreach (var tag in tags)
+         {
+            var tagKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+               ? KeyFormatHelper.GetTagKey(tag)
+               : KeyFormatHelper.GetTagKey(tag, _moduleName);
 
-                await _redisDatabase.SetAddAsync(tagKey, prefixedKey);
-            }
-        }
-    }
+            await _redisDatabase.SetAddAsync(tagKey, prefixedKey);
+         }
+      }
+   }
 
-    public async ValueTask RemoveByKeyAsync(string key, CancellationToken token = default)
-    {
-        var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
-            ? KeyFormatHelper.GetPrefixedKey(key)
-            : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
+   public async ValueTask RemoveByKeyAsync(string key, CancellationToken token = default)
+   {
+      var prefixedKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+         ? KeyFormatHelper.GetPrefixedKey(key)
+         : KeyFormatHelper.GetPrefixedKey(key, _moduleName);
 
-        await _redisDatabase.RemoveAsync(prefixedKey);
-    }
+      await _redisDatabase.RemoveAsync(prefixedKey);
+   }
 
-    public async ValueTask RemoveByKeysAsync(IEnumerable<string> keys, CancellationToken token = default)
-    {
-        var prefixedKeys = _config.KeyPrefixForIsolation == KeyPrefix.None
-            ? KeyFormatHelper.GetPrefixedKeys(keys)
-            : KeyFormatHelper.GetPrefixedKeys(keys, _moduleName);
+   public async ValueTask RemoveByKeysAsync(IEnumerable<string> keys, CancellationToken token = default)
+   {
+      var prefixedKeys = _config.KeyPrefixForIsolation == KeyPrefix.None
+         ? KeyFormatHelper.GetPrefixedKeys(keys)
+         : KeyFormatHelper.GetPrefixedKeys(keys, _moduleName);
 
-        await _redisDatabase.RemoveAllAsync(prefixedKeys.ToArray());
-    }
+      await _redisDatabase.RemoveAllAsync(prefixedKeys.ToArray());
+   }
 
-    public async ValueTask RemoveByTagAsync(string tag, CancellationToken token = default)
-    {
-        var tagKey = _config.KeyPrefixForIsolation == KeyPrefix.None
-            ? KeyFormatHelper.GetTagKey(tag)
-            : KeyFormatHelper.GetTagKey(tag, _moduleName);
+   public async ValueTask RemoveByTagAsync(string tag, CancellationToken token = default)
+   {
+      var tagKey = _config.KeyPrefixForIsolation == KeyPrefix.None
+         ? KeyFormatHelper.GetTagKey(tag)
+         : KeyFormatHelper.GetTagKey(tag, _moduleName);
 
-        var keys = await _redisDatabase.SetMembersAsync<string>(tagKey);
-        if (keys.Length > 0)
-        {
-            await _redisDatabase.RemoveAllAsync(keys);
-        }
+      var keys = await _redisDatabase.SetMembersAsync<string>(tagKey);
+      if (keys.Length > 0)
+      {
+         await _redisDatabase.RemoveAllAsync(keys);
+      }
 
-        await _redisDatabase.RemoveAsync(tagKey);
-    }
+      await _redisDatabase.RemoveAsync(tagKey);
+   }
 
-    public async ValueTask RemoveByTagsAsync(IEnumerable<string> tags, CancellationToken token = default)
-    {
-        var tasks = tags.Select(tag => RemoveByTagAsync(tag, token).AsTask());
-        await Task.WhenAll(tasks);
-    }
+   public async ValueTask RemoveByTagsAsync(IEnumerable<string> tags, CancellationToken token = default)
+   {
+      var tasks = tags.Select(tag => RemoveByTagAsync(tag, token)
+         .AsTask());
+      await Task.WhenAll(tasks);
+   }
 }
