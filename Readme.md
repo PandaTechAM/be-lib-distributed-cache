@@ -244,6 +244,16 @@ public class SendSmsService(IRateLimitService<SendSmsService> rateLimitService)
 }
 ```
 
+### 6. Health Check Integration
+
+`Pandatech.DistributedCache` now automatically adds a Redis health check as part of the `AddDistributedCache` method.
+This feature leverages the `AspNetCore.HealthChecks.Redis` library to monitor Redis connectivity seamlessly.
+
+**Default Health Check Behavior:**
+
+- A health check for Redis is automatically registered using the provided Redis connection string.
+- The health check uses a 3-second timeout to validate the availability of Redis.
+
 Based on rate limit state you can throw exception/return 427 or proceed with the business logic.
 
 ## Enforced MessagePack Serialization

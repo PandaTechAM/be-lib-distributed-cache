@@ -45,7 +45,8 @@ public static class WebApplicationBuilderExtension
       };
 
       builder.Services.AddStackExchangeRedisExtensions<RedisMsgPackObjectSerializer>(redisConfiguration);
-      //builder.Services.AddHostedService<RedisHealthCheckService>(); //Discontinued feature
+
+      builder.AddRedisHealthCheck(configurations.RedisConnectionString);
 
       return builder;
    }
@@ -83,13 +84,6 @@ public static class WebApplicationBuilderExtension
          if (options.DefaultExpiration <= TimeSpan.Zero)
          {
             throw new ArgumentException("AddCacheService options: DefaultExpiration must be greater than 0.");
-         }
-
-         if (options.CacheResetMode == CacheResetMode.ResetFrequentTagsAfterHealthCheckFail &&
-             options.HealthCheckInterval <= TimeSpan.Zero) //Discontinued feature
-         {
-            throw new ArgumentException(
-               "AddCacheService options: HealthCheckInterval must be greater than 0 when CacheResetMode is ResetFrequentTagsAfterHealthCheckFail.");
          }
       });
    }
