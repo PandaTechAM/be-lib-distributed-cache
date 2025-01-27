@@ -1,6 +1,6 @@
-﻿using DistributedCache.Dtos;
-using DistributedCache.Enums;
+﻿using DistributedCache.Enums;
 using DistributedCache.Helpers;
+using DistributedCache.Models;
 using DistributedCache.Options;
 using DistributedCache.Services.Interfaces;
 using Microsoft.Extensions.Options;
@@ -8,26 +8,20 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace DistributedCache.Services.Implementations;
 
-public class RedisRateLimitService<T>(
+public class RedisRateLimitService(
    IRedisClient redisClient,
    IOptions<CacheConfigurationOptions> options,
-   RedisLockService lockService) : IRateLimitService<T>
-   where T : class
+   IDistributedLockService lockService) : IRateLimitService
 {
    private readonly CacheConfigurationOptions _config = options.Value;
 
-   private readonly string _moduleName = typeof(T).Assembly.GetName()
-                                                  .Name!;
 
    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
 
    public async ValueTask<RateLimitState> RateLimitAsync(RateLimitConfiguration rateLimitConfiguration,
       CancellationToken cancellationToken = default)
    {
-      var key = _config.KeyPrefixForIsolation == KeyPrefix.None
-         ? KeyFormatHelper.GetPrefixedKey(rateLimitConfiguration.GetKey())
-         : KeyFormatHelper.GetPrefixedKey(rateLimitConfiguration.GetKey(), _moduleName);
-
+      var key = CacheKeyFormatter.BuildPrefixedKey(rateLimitConfiguration.GetKey(), _config);
 
       var lockValue = Guid.NewGuid()
                           .ToString();
@@ -36,18 +30,18 @@ public class RedisRateLimitService<T>(
       {
          cancellationToken.ThrowIfCancellationRequested();
 
-         var isLocked = await lockService.CheckForLockAsync(key);
+         var isLocked = await lockService.HasLockAsync(key);
 
          if (isLocked)
          {
-            await lockService.WaitForLockReleaseAsync(key, cancellationToken);
+            await lockService.WaitUntilLockIsReleasedAsync(key, cancellationToken);
             continue;
          }
 
          var lockAcquired = await lockService.AcquireLockAsync(key, lockValue);
          if (!lockAcquired)
          {
-            await lockService.WaitForLockReleaseAsync(key, cancellationToken);
+            await lockService.WaitUntilLockIsReleasedAsync(key, cancellationToken);
             continue;
          }
 

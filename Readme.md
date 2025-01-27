@@ -1,22 +1,47 @@
 # Pandatech.DistributedCache
 
-Pandatech.DistributedCache is a .NET library providing an efficient and performant abstraction layer over
-`StackExchange.Redis`, specifically designed for .NET applications. This library builds on top of
-`StackExchange.Redis.Extensions.AspNetCore` and `StackExchange.Redis.Extensions.MsgPack` to offer a robust, easy-to-use
-caching solution with advanced features such as typed cache services, distributed locking, business logic rate limiting.
+**Pandatech.DistributedCache** is a lightweight .NET library that leverages `StackExchange.Redis` for distributed
+caching.
+Built on top of `StackExchange.Redis.Extensions.AspNetCore` and `StackExchange.Redis.Extensions.MsgPack`, it offers a
+straightforward solution for typed caching, distributed locking, rate limiting, and stampede protection—all through the
+`Microsoft.Extensions.Caching.Abstractions` NuGet package's `HybridCache` abstract class.
+
+> Note: As of January 29, 2025, `HybridCache` is still in preview, and Microsoft does not provide an official
+> implementation. The only known library with a `HybridCache` implementation is `FusionCache`, which uses a two-level (
+> L1 +
+> L2) caching model. While that approach can yield high performance, it also adds complexity—particularly in distributed
+> environments. Many scenarios do not require such complexity, which is why Pandatech.DistributedCache avoids
+> maintaining
+> an L1 cache. Consequently, certain `HybridCacheEntryFlags` (e.g., disabling local cache writes) are effectively
+> ignored in
+> this library. You may set them, but they have no effect here.
+
+Overall, `Pandatech.DistributedCache` weighs in at fewer than 500 lines of code, making it easy to understand, extend,
+and
+maintain.
 
 ## Features
 
-- **Typed Cache Service:** Supports strongly-typed caching with MessagePack serialization.
-- **Distributed Locking:** Ensures data consistency with distributed locks.
-- **Distributed Rate Limiting:** Prevents cache abuse with rate limiting based on business logic.
-- **Key Isolation:** Modular monolith support by prefixing keys with assembly names.
-- **Stampede Protection:** Protects against cache stampede in the `GetOrCreateAsync` method.
-- **No Serializer Override:** Enforces MessagePack serialization for performance and readability.
+- **Typed Cache Service:**
+  Offers strongly typed caching using MessagePack serialization under the hood.
+- **Distributed Locking:**
+  Provides safe concurrency control with Redis-based locks.
+- **Distributed Rate Limiting:**
+  Allows you to apply business logic–driven rate limits on operations (e.g., sending SMS or email).
+- **Stampede Protection:**
+  Prevents a cache stampede by synchronizing concurrent `GetOrCreateAsync` calls on the same key.
+- **HybridCache Integration:**
+  Implements the preview `HybridCache` abstraction from Microsoft, ensuring a future-friendly approach if you choose to
+  migrate to another HybridCache-based library in the future.
+- **HybridCache Extension:**
+  Provides extra methods for `HybridCache` to simplify common cache operations.
+- **Health Check Integration:**
+  Automatically registers a Redis health check (using `AspNetCore.HealthChecks.Redis`) for seamless readiness and
+  liveness checks.
 
 ## Installation
 
-Add `Pandatech.DistributedCache` to your project using NuGet:
+Install the package from NuGet:
 
 ```bash
 dotnet add package Pandatech.DistributedCache
@@ -26,7 +51,7 @@ dotnet add package Pandatech.DistributedCache
 
 ### 1. Configuration
 
-In your `Program.cs`, configure the cache service:
+In your `Program.cs`, configure the distributed cache:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -34,35 +59,27 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddDistributedCache(options =>
 {
     options.RedisConnectionString = "your_redis_connection_string"; //No default value and required
+    options.ChannelPrefix = "your_channel_prefix"; //Default is null
     options.ConnectRetry = 15; //Default is 10
     options.ConnectTimeout = TimeSpan.FromSeconds(10); //Default is 10 seconds
     options.SyncTimeout = TimeSpan.FromSeconds(5); //Default is 5 seconds
-    options.DistributedLockDuration = TimeSpan.FromSeconds(5); //Default is 5 seconds
+    options.DistributedLockDuration = TimeSpan.FromSeconds(30); //Default is 8 seconds
     options.DefaultExpiration = TimeSpan.FromMinutes(5); //Default is 15 minutes
 });
 
 var app = builder.Build();
 ```
 
-#### Advanced Configuration
+When `AddDistributedCache` is called:
 
-**Key Prefix for Isolation**
-To ensure module-level isolation in modular monoliths, use the `KeyPrefixForIsolation` setting. This will not allow
-cross ClassLibrary cache access.
-
-```csharp
-options.KeyPrefixForIsolation = KeyPrefix.AssemblyNamePrefix;
-```
-
-**Note:** Even if you don't use key prefixing, you still need to provide the class as a generic type (`T`) when using
-`IRateLimitService<T>`. The generic type `T` is used to retrieve the assembly name, which is important for key
-isolation. If
-you choose not to prefix keys by assembly name, this type is still required but will be ignored in the actual
-implementation.
+- A Redis connection is established with the specified parameters.
+- A Redis health check is automatically registered with a 3-second timeout, ensuring that your application can properly
+  monitor Redis availability.
 
 ### 2. Cached Entity Preparation
 
-Create your cache entity/model in order to inject it in the actual service:
+Create a model class to store in the cache. Decorate it with `[MessagePackObject]` so it can be serialized and
+deserialized with MessagePack:
 
 ```csharp
 [MessagePackObject]
@@ -74,136 +91,89 @@ public class TestCacheEntity : ICacheEntity
 }
 ```
 
-### 3. Injecting ICacheService
+### 3. Injecting HybridCache
 
-Use `ICacheService<PreparedCacheEntity>` in your services to interact with the cache:
+Use dependency injection to retrieve an instance of `HybridCache` and perform cache operations:
 
 ```csharp
-public class CacheTestsService(ICacheService<TestCacheEntity> cacheService)
+public class CacheTestsService(HybridCache hybridCache)
 {
-    public async Task GetFromCache(CancellationToken token = default)
-    {
-        await cacheService.GetOrCreateAsync("test",
-            async _ => await GetFromPostgres(token),
-            TimeSpan.FromMinutes(1),
-            ["test"],
-            token);
+   public async Task GetFromCache(CancellationToken token = default)
+   {
+      var call1 = await hybridCache.GetOrCreateAsync<TestCacheEntity>("test",
+         async _ => await GetFromPostgres(token),
+         new HybridCacheEntryOptions
+         {
+            Expiration = TimeSpan.FromMinutes(5),
+         },
+         ["test"],
+         token);
 
-        await cacheService.GetOrCreateAsync("test2",
-           async _ => await GetFromPostgres(token),
-           TimeSpan.FromMinutes(1),
-           ["vazgen"],
-           token);
-        
-        await cacheService.GetOrCreateAsync("test3",
-           async _ => await GetFromPostgres(token),
-           TimeSpan.FromMinutes(1),
-           ["test", "vazgen"],
-           token);
-    }
+     
 
-    public async Task DeleteCache(CancellationToken token = default)
-    {
-        await cacheService.RemoveByTagAsync("test", token);
-    }
+      var call2 = await hybridCache.GetOrCreateAsync<TestCacheEntity>("test",
+         async _ => await GetFromPostgres(token),
+         new HybridCacheEntryOptions
+         {
+            Expiration = TimeSpan.FromMinutes(5),
+         },
+         ["test"],
+         token);
 
-    public async Task<TestCacheEntity> GetFromPostgres(CancellationToken token)
-    {
-        Console.WriteLine("Fetching from PostgreSQL");
-        await Task.Delay(500, token);
-        return new TestCacheEntity();
-    }
+      var call3 = await hybridCache.GetOrCreateAsync<TestCacheEntity>("test2",
+         async _ => await GetFromPostgres(token),
+         new HybridCacheEntryOptions
+         {
+            Expiration = TimeSpan.FromMinutes(5),
+         },
+         ["vazgen"],
+         token);
+
+    
+
+      var call4 = await hybridCache.GetOrCreateAsync<TestCacheEntity>("test3",
+         async _ => await GetFromPostgres(token),
+         new HybridCacheEntryOptions
+         {
+            Expiration = TimeSpan.FromMinutes(5),
+         },
+         ["test", "vazgen"],
+         token);
+      
+   }
+   
+   public async Task TestExistence(CancellationToken token = default)
+   {
+      var call1Check = await hybridCache.ExistsAsync<TestCacheEntity>("test", token);
+      Console.WriteLine($"Call1: {call1Check}");
+      var call2Check = await hybridCache.ExistsAsync<TestCacheEntity>("test", token);
+      Console.WriteLine($"Call2: {call2Check}");
+      var call3Check = await hybridCache.ExistsAsync<TestCacheEntity>("test2", token);
+      Console.WriteLine($"Call3: {call3Check}");
+      var call4Check = await hybridCache.ExistsAsync<TestCacheEntity>("test3", token);
+      Console.WriteLine($"Call4: {call4Check}");
+   }
+
+   public async Task DeleteCache(CancellationToken token = default)
+   {
+      await hybridCache.RemoveByTagAsync("test", token);
+   }
+
+   public async Task<TestCacheEntity> GetFromPostgres(CancellationToken token)
+   {
+      Console.WriteLine("Hey, I'm Fetching from postgres");
+      await Task.Delay(500, token);
+      return new TestCacheEntity();
+   }
 }
 ```
 
-### 4. Interface Methods
+### 4. Rate Limiting
 
-```csharp
-namespace DistributedCache.Services.Interfaces;
+Pandatech.DistributedCache also supports rate limiting via `IRateLimitService`.
 
-/// <summary>
-/// Interface for cache service operations.
-/// </summary>
-/// <typeparam name="T">The type of the cache entity.</typeparam>
-public interface ICacheService<T> where T : class
-{
-   /// <summary>
-   /// Gets or creates a cache entry asynchronously.
-   /// </summary>
-   /// <param name="key">The key of the cache entry.</param>
-   /// <param name="factory">A factory function to create the cache entry if it does not exist.</param>
-   /// <param name="expiration">Optional expiration time for the cache entry.</param>
-   /// <param name="tags">Optional tags associated with the cache entry.</param>
-   /// <param name="token">Cancellation token.</param>
-   /// <returns>A task representing the asynchronous operation, with the cache entry as the result.</returns>
-   ValueTask<T> GetOrCreateAsync(string key, Func<CancellationToken, ValueTask<T>> factory,
-      TimeSpan? expiration = null, IReadOnlyCollection<string>? tags = null, CancellationToken token = default);
-
-   /// <summary>
-   /// Gets a cache entry asynchronously.
-   /// </summary>
-   /// <param name="key">The key of the cache entry.</param>
-   /// <param name="token">Cancellation token.</param>
-   /// <returns>A task representing the asynchronous operation, with the cache entry as the result if found; otherwise, null.</returns>
-   ValueTask<T?> GetAsync(string key, CancellationToken token = default);
-
-   /// <summary>
-   /// Sets a cache entry asynchronously.
-   /// </summary>
-   /// <param name="key">The key of the cache entry.</param>
-   /// <param name="value">The value of the cache entry.</param>
-   /// <param name="expiration">Optional expiration time for the cache entry.</param>
-   /// <param name="tags">Optional tags associated with the cache entry.</param>
-   /// <param name="token">Cancellation token.</param>
-   /// <returns>A task representing the asynchronous operation.</returns>
-   ValueTask SetAsync(string key, T value, TimeSpan? expiration = null, IReadOnlyCollection<string>? tags = null,
-      CancellationToken token = default);
-
-   /// <summary>
-   /// Removes a cache entry by key asynchronously.
-   /// </summary>
-   /// <param name="key">The key of the cache entry to remove.</param>
-   /// <param name="token">Cancellation token.</param>
-   /// <returns>A task representing the asynchronous operation.</returns>
-   ValueTask RemoveByKeyAsync(string key, CancellationToken token = default);
-
-   /// <summary>
-   /// Removes multiple cache entries by their keys asynchronously.
-   /// </summary>
-   /// <param name="keys">The keys of the cache entries to remove.</param>
-   /// <param name="token">Cancellation token.</param>
-   /// <returns>A task representing the asynchronous operation.</returns>
-   ValueTask RemoveByKeysAsync(IEnumerable<string> keys, CancellationToken token = default);
-
-   /// <summary>
-   /// Removes cache entries associated with a tag asynchronously.
-   /// </summary>
-   /// <param name="tag">The tag associated with the cache entries to remove.</param>
-   /// <param name="token">Cancellation token.</param>
-   /// <returns>A task representing the asynchronous operation.</returns>
-   /// <remarks>
-   /// If multiple tags are specified, any entry matching any one of the tags will be removed. This means tags are treated as an "OR" condition.
-   /// </remarks>
-   ValueTask RemoveByTagAsync(string tag, CancellationToken token = default);
-
-   /// <summary>
-   /// Removes cache entries associated with multiple tags asynchronously.
-   /// </summary>
-   /// <param name="tags">The tags associated with the cache entries to remove.</param>
-   /// <param name="token">Cancellation token.</param>
-   /// <returns>A task representing the asynchronous operation.</returns>
-   /// <remarks>
-   /// If multiple tags are specified, any entry matching any one of the tags will be removed. This means tags are treated as an "OR" condition.
-   /// </remarks>
-   ValueTask RemoveByTagsAsync(IEnumerable<string> tags, CancellationToken token = default);
-}
-```
-
-### 5. Rate Limiting
-
-Implement rate limiting using `IRateLimitService` and `RateLimitConfiguration`.
-
-**Define Rate Limiting Configuration**
+**Example Rate Limit Configuration**
+Use an enum to track different action types, and create a shared configuration:
 
 ```csharp
 public enum ActionType //your business logic actions
@@ -226,13 +196,13 @@ public static class RateLimitingConfigurations //your shared rate limiting confi
 }
 ```
 
-**Implement Rate Limiting in the service**
+**Applying Rate Limiting**
 
 ```csharp
 using DistributedCache.Dtos;
 using DistributedCache.Services.Interfaces;
 
-public class SendSmsService(IRateLimitService<SendSmsService> rateLimitService)
+public class SendSmsService(IRateLimitService rateLimitService)
 {
     public async Task<RateLimitState> SendSms(CancellationToken cancellationToken = default)
     {
@@ -244,38 +214,90 @@ public class SendSmsService(IRateLimitService<SendSmsService> rateLimitService)
 }
 ```
 
+### 5. Distributed Locking
+
+Distributed locks can be used for concurrency control. The core interface:
+
+```csharp
+public interface IDistributedLockService
+{
+   Task<bool> AcquireLockAsync(string resourceKey, string lockToken);
+   Task<bool> HasLockAsync(string resourceKey);
+   Task WaitUntilLockIsReleasedAsync(string resourceKey, CancellationToken cancellationToken);
+   Task ReleaseLockAsync(string resourceKey, string lockToken);
+}
+```
+
+In practice, you inject `IDistributedLockService` into your service or use the default RedisLockService, acquire a lock
+for a specific resource, and release it once your operation completes. This ensures that only one caller can modify a
+given resource at a time.
+
 ### 6. Health Check Integration
 
-`Pandatech.DistributedCache` now automatically adds a Redis health check as part of the `AddDistributedCache` method.
-This feature leverages the `AspNetCore.HealthChecks.Redis` library to monitor Redis connectivity seamlessly.
+`Pandatech.DistributedCache` automatically adds a Redis health check to your application through the
+`AddDistributedCache`
+method. By default, the check uses a 3-second timeout to validate Redis connectivity. This helps with
+container-orchestrated environments (Kubernetes, Docker, etc.) to ensure your service is only considered healthy when
+Redis is accessible.
 
-**Default Health Check Behavior:**
+### 7. HybridCache Extensions
 
-- A health check for Redis is automatically registered using the provided Redis connection string.
-- The health check uses a 3-second timeout to validate the availability of Redis.
+Pandatech.DistributedCache provides a few helpful extension methods for the `HybridCache` abstraction. These extensions
+are also compatible with other `HybridCache` implementations you might use in the future, allowing for a smoother
+migration path if you switch providers.
 
-Based on rate limit state you can throw exception/return 427 or proceed with the business logic.
+1. `GetOrDefaultAsync<TValue>` Retrieves an item from the cache using the specified key. If the item is not found, it
+   returns the provided default
+   value instead of creating a real cache entry:
+   ```csharp
+    var cachedValue = await hybridCache.GetOrDefaultAsync("someKey", defaultValue, cancellationToken);
+    ```
+   This is especially useful when you simply want a fallback value without messing up with factory methods.
+2. `TryGetAsync<TValue>`
+   Attempts to retrieve an item from the cache. If it exists, returns (true, value), otherwise (false, default).
+   ```csharp
+    var (exists, value) = await hybridCache.TryGetAsync<YourModel>("someKey", cancellationToken);
+    if (exists)
+    {
+    // use the 'value'
+    }
+    else
+    {
+    // handle the 'not found' case
+    }
+    ```
+   This method is a cleaner alternative to a typical “check then get” pattern, eliminating extra round-trips to Redis.
+3. `ExistsAsync<TValue>`
+   Quickly checks if an item exists in the cache without returning its value:
+   ```csharp
+    var recordExists = await hybridCache.ExistsAsync<YourModel>("someKey", cancellationToken);
+    if (recordExists)
+    {
+    // Key is present in cache
+    }
+    else
+    {
+    // Key does not exist
+    }
+    ```
+   Useful in scenarios where you only need to confirm the existence of the key rather than retrieve and deserialize its
+   data.
 
 ## Enforced MessagePack Serialization
 
-`Pandatech.DistributedCache` enforces the use of MessagePack serialization for several compelling reasons:
+We enforce MessagePack serialization to maximize performance and simplicity:
 
-1. **Performance:** MessagePack is significantly faster compared to other serialization formats. For example, benchmarks
-   show that MessagePack can be up to 4 times faster than JSON and 1.5 times faster than Protobuf in terms of
-   serialization and deserialization speed.
-2. **Compact Size:** MessagePack produces smaller payloads, which results in lower memory usage and faster data transfer
-   over the network. On average, MessagePack serialized data is about 50% smaller than JSON and 20-30% smaller than
-   Protobuf.
-3. **Human Readability in Tools:** Many Redis clients, such as Another Redis Desktop Manager, can display MessagePack
-   serialized data as JSON, making it easier for developers to inspect and debug the cache content.
-4. **Simplicity:** By enforcing a single serialization format, we avoid the complexity and potential issues that can
-   arise from supporting multiple serializers. This decision simplifies the implementation and ensures consistent
-   behavior across different parts of the application.
+1. **Speed:** MessagePack can be several times faster than JSON and faster than Protobuf in many scenarios.
+2. **Compactness:** MessagePack typically produces smaller payloads than JSON, improving network transfer performance
+   and
+   memory usage.
+3. **Tooling Support:** Many Redis management tools (e.g., Another Redis Desktop Manager) can display MessagePack data
+   as JSON-like view for easy debugging.
+4. **Consistency:** A single, enforced serialization format avoids complexity and ensures consistent behavior across
+   your
+   application.
 
-Given these benefits, overriding the serializer is not provided as MessagePack meets the performance and usability needs
-effectively.
-
-**Benchmark Comparison**
+**Benchmark Snapshot:**
 -------------------------
 
 | Format      | Serialization Speed   | Deserialization Speed | Serialized Size |
@@ -284,16 +306,17 @@ effectively.
 | Protobuf    | 1.5x faster than JSON | 1.2x faster than JSON | ~70% of JSON    |
 | JSON        | Baseline              | Baseline              | Baseline        |
 
-## Acknowledgements
-
-Inspired by Microsoft's .NET 9 `HybridCache` and leveraging the power of `StackExchange.Redis`. `HybridCache` is in a
-preview state and is not recommended for production use. The main difference is that `HybridCache` is too general and
-also
-uses L1 + L2 caching instead of only L2 caching.
-
-When the time comes and `HybridCache` will become stable, mature and feature rich, we will consider migrating to it with
-backward compatability.
+Because of these advantages, `Pandatech.DistributedCache` does not provide alternative serialization options;
+MessagePack
+covers the core needs effectively.
 
 ## License
 
 Pandatech.DistributedCache is licensed under the MIT License.
+
+----------------
+`Pandatech.DistributedCache` aims to simplify distributed caching for most .NET applications without incurring the
+overhead of a multi-level caching system. If your application requirements evolve, the standardized HybridCache
+abstraction ensures you can switch to other providers (such as `FusionCache` or Microsoft's future implementation)
+without extensive refactoring. Enjoy fasterlookups, simpler code, and safer concurrency management—all in under 500
+lines of code.

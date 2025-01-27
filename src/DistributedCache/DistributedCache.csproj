@@ -8,13 +8,13 @@
         <PackageReadmeFile>Readme.md</PackageReadmeFile>
         <Authors>Pandatech</Authors>
         <Copyright>MIT</Copyright>
-        <Version>3.0.1</Version>
+        <Version>4.0.0</Version>
         <PackageId>Pandatech.DistributedCache</PackageId>
         <Title>Pandatech Distributed Cache</Title>
-        <PackageTags>Pandatech, library, redis, distributed locks, cache</PackageTags>
-        <Description>Pandatech.DistributedCache is a comprehensive caching library designed for .NET applications, leveraging the power of Redis. It provides easy-to-use and highly configurable caching mechanisms, including support for tagged cache entries, customizable expiration policies, and robust health check services. The library also features built-in distributed lock mechanisms to ensure data consistency and prevent cache stampedes. This ensures high performance, scalability, and reliability, making it an ideal choice for enterprise-level distributed caching needs.</Description>
+        <PackageTags>pandatech;cache;hybrid-cache;distributed-cahce;message-pack;rate-limiting;redis-lock;redis;fusion-cache</PackageTags>
+        <Description>Pandatech.DistributedCache is a lightweight .NET library that extends the new HybridCache abstraction for seamless distributed caching on top of Redis. It provides strongly typed caching with MessagePack serialization, distributed locking, rate limiting, and stampede protection. With fewer than 500 lines of code, it is both easy to understand and simple to adopt, while still offering robust features for production environments.</Description>
         <RepositoryUrl>https://github.com/PandaTechAM/be-lib-distributed-cache</RepositoryUrl>
-        <PackageReleaseNotes>Added healthcheck</PackageReleaseNotes>
+        <PackageReleaseNotes>Changed ICacheService with HybridCache interface. Not backward compatible with previous version</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -23,11 +23,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
-        <PackageReference Include="MessagePack" Version="2.5.192" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
-        <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="10.2.0"/>
-        <PackageReference Include="StackExchange.Redis.Extensions.MsgPack" Version="10.2.0"/>
+        <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="9.0.0"/>
+        <PackageReference Include="MessagePack" Version="3.1.2"/>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.1"/>
+        <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.1"/>
+        <PackageReference Include="StackExchange.Redis.Extensions.AspNetCore" Version="11.0.0"/>
+        <PackageReference Include="StackExchange.Redis.Extensions.MsgPack" Version="11.0.0"/>
     </ItemGroup>
 
 </Project>

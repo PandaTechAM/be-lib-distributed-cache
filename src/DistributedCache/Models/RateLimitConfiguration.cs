@@ -1,4 +1,4 @@
-﻿namespace DistributedCache.Dtos;
+﻿namespace DistributedCache.Models;
 
 public class RateLimitConfiguration : RateLimitKey
 {
