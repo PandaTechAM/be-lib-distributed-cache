@@ -3,6 +3,7 @@ using DistributedCache.Serializers;
 using DistributedCache.Services.Implementations;
 using DistributedCache.Services.Interfaces;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Caching.Hybrid;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -34,9 +35,9 @@ public static class WebApplicationBuilderExtension
 
       builder.Services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(redisOptions));
 
-      builder.Services.AddSingleton(typeof(ICacheService<>), typeof(RedisCacheService<>));
-      builder.Services.AddSingleton(typeof(IRateLimitService<>), typeof(RedisRateLimitService<>));
-      builder.Services.AddSingleton<RedisLockService>();
+      builder.Services.AddSingleton<IRateLimitService, RedisRateLimitService>();
+      builder.Services.AddSingleton<IDistributedLockService, RedisLockService>();
+      builder.Services.AddSingleton<HybridCache, RedisDistributedCache>();
 
       var redisConfiguration = new RedisConfiguration
       {
@@ -75,7 +76,7 @@ public static class WebApplicationBuilderExtension
             throw new ArgumentException("AddCacheService options: SyncTimeout must be greater than 0.");
          }
 
-         if (options.DistributedLockDuration <= TimeSpan.FromSeconds(1))
+         if (options.DistributedLockMaxDuration <= TimeSpan.FromSeconds(1))
          {
             throw new ArgumentException(
                "AddCacheService options: DistributedLockDuration must be greater or equal 1.");

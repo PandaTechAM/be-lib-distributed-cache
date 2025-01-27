@@ -2,6 +2,6 @@
 
 public enum ActionType
 {
-    SmsForTfa = 1,
-    EmailForTfa = 2
+   SmsForTfa = 1,
+   EmailForTfa = 2
 }

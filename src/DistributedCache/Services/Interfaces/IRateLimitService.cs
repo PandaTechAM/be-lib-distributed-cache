@@ -1,17 +1,11 @@
-﻿using DistributedCache.Dtos;
+﻿using DistributedCache.Models;
 
 namespace DistributedCache.Services.Interfaces;
 
 /// <summary>
 ///    Defines a service for applying rate limiting to specific operations.
 /// </summary>
-/// <typeparam name="T">
-///    The type of the class that is used to infer the assembly name for key isolation.
-///    Even if the assembly name is not used in key prefixing, this type must still be provided
-///    to comply with the service's requirements.
-/// </typeparam>
-public interface IRateLimitService<T>
-   where T : class
+public interface IRateLimitService
 {
    /// <summary>
    ///    Applies rate limiting based on the provided configuration.

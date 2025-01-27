@@ -5,7 +5,8 @@ namespace DistributedCache.Extensions;
 
 internal static class HealthCheckExtension
 {
-   internal static WebApplicationBuilder AddRedisHealthCheck(this WebApplicationBuilder builder, string connectionString)
+   internal static WebApplicationBuilder AddRedisHealthCheck(this WebApplicationBuilder builder,
+      string connectionString)
    {
       builder.Services
              .AddHealthChecks()

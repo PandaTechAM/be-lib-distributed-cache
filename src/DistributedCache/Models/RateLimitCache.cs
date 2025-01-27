@@ -1,6 +1,6 @@
 ﻿using MessagePack;
 
-namespace DistributedCache.Dtos;
+namespace DistributedCache.Models;
 
 [MessagePackObject]
 public class RateLimitCache

@@ -1,7 +1,7 @@
 using CacheService.Demo;
+using CacheService.Demo.TestCache;
 using CacheService.Demo.TestRateLimiting;
 using DistributedCache.Extensions;
-using DistributedCache.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,8 +14,8 @@ builder.Services.AddScoped<SendSmsService>();
 
 builder.AddDistributedCache(o =>
 {
-    o.RedisConnectionString = "localhost:6379";
-    o.KeyPrefixForIsolation = KeyPrefix.AssemblyNamePrefix;
+   o.RedisConnectionString = "localhost:6379";
+   o.ChannelPrefix = "app_name";
 });
 
 var app = builder.Build();
