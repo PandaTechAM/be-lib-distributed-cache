@@ -20,7 +20,7 @@ public static class HybridCacheExtensions
       );
    }
 
-   public static async ValueTask<(bool Exists, TValue? Value)> TryGetAsync<TValue>(this HybridCache cache,
+   public static async ValueTask<(bool Exists, TValue Value)> TryGetAsync<TValue>(this HybridCache cache,
       string key,
       CancellationToken ct = default)
    {
