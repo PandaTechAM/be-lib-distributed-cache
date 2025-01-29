@@ -121,13 +121,24 @@ internal sealed class RedisDistributedCache(
       }
 
       var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
+
       var expirationTime = options?.Expiration ?? _config.DefaultExpiration;
+
+
       var cacheStore = new CacheStore<T>
       {
          Data = value,
          Tags = (tags ?? Array.Empty<string>()).ToList()
       };
-      await _redisDatabase.AddAsync(prefixedKey, cacheStore, expirationTime);
+
+      if (expirationTime == TimeSpan.MaxValue)
+      {
+         await _redisDatabase.AddAsync(prefixedKey, cacheStore);
+      }
+      else
+      {
+         await _redisDatabase.AddAsync(prefixedKey, cacheStore, expirationTime);
+      }
    }
 
    public override async ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default)
