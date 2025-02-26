@@ -8,13 +8,13 @@
         <PackageReadmeFile>Readme.md</PackageReadmeFile>
         <Authors>Pandatech</Authors>
         <Copyright>MIT</Copyright>
-        <Version>4.0.6</Version>
+        <Version>4.0.7</Version>
         <PackageId>Pandatech.DistributedCache</PackageId>
         <Title>Pandatech Distributed Cache</Title>
         <PackageTags>pandatech;cache;hybrid-cache;distributed-cahce;message-pack;rate-limiting;redis-lock;redis;fusion-cache</PackageTags>
         <Description>Pandatech.DistributedCache is a lightweight .NET library that extends the new HybridCache abstraction for seamless distributed caching on top of Redis. It provides strongly typed caching with MessagePack serialization, distributed locking, rate limiting, and stampede protection. With fewer than 500 lines of code, it is both easy to understand and simple to adopt, while still offering robust features for production environments.</Description>
         <RepositoryUrl>https://github.com/PandaTechAM/be-lib-distributed-cache</RepositoryUrl>
-        <PackageReleaseNotes>Nuget updates</PackageReleaseNotes>
+        <PackageReleaseNotes>Minor optimization in lock service</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>
