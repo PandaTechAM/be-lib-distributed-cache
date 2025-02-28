@@ -16,17 +16,17 @@ internal sealed class RedisLockService(IRedisClient redisClient, IOptions<CacheC
    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
    private readonly TimeSpan _timeout = 2 * options.Value.DistributedLockMaxDuration;
 
-   public async Task<bool> AcquireLockAsync(string key, string lockValue)
+   public Task<bool> AcquireLockAsync(string key, string lockValue)
    {
       var lockKey = CacheKeyFormatter.BuildLockKey(key);
-      return await _redisDatabase.Database.StringSetAsync(lockKey, lockValue, _lockExpiry, When.NotExists);
+      return _redisDatabase.Database.StringSetAsync(lockKey, lockValue, _lockExpiry, When.NotExists);
    }
 
-   public async Task<bool> HasLockAsync(string key)
+   public Task<bool> HasLockAsync(string key)
    {
       var lockKey = CacheKeyFormatter.BuildLockKey(key);
 
-      return await _redisDatabase.Database.KeyExistsAsync(lockKey);
+      return _redisDatabase.Database.KeyExistsAsync(lockKey);
    }
 
    public async Task WaitUntilLockIsReleasedAsync(string key, CancellationToken token)
@@ -47,7 +47,7 @@ internal sealed class RedisLockService(IRedisClient redisClient, IOptions<CacheC
       }
    }
 
-   public async Task ReleaseLockAsync(string key, string lockValue)
+   public Task ReleaseLockAsync(string key, string lockValue)
    {
       var lockKey = CacheKeyFormatter.BuildLockKey(key);
       const string script = @"
@@ -57,6 +57,6 @@ internal sealed class RedisLockService(IRedisClient redisClient, IOptions<CacheC
                     return 0
                 end";
 
-      await _redisDatabase.Database.ScriptEvaluateAsync(script, [lockKey], [lockValue]);
+      return _redisDatabase.Database.ScriptEvaluateAsync(script, [lockKey], [lockValue]);
    }
 }
