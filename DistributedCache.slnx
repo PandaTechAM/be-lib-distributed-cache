@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".github/workflows/main.yml" />
+    <File Path=".gitignore" />
+    <File Path="global.json" />
+    <File Path="Readme.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/DistributedCache/DistributedCache.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/DistributedCache.Demo/DistributedCache.Demo.csproj" />
+    <Project Path="test/DistributedCache.Tests/DistributedCache.Tests.csproj" />
+  </Folder>
+</Solution>
