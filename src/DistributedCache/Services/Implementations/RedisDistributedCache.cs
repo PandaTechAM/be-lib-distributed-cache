@@ -3,7 +3,6 @@ using DistributedCache.Models;
 using DistributedCache.Options;
 using DistributedCache.Services.Interfaces;
 using Microsoft.Extensions.Caching.Hybrid;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
@@ -12,8 +11,7 @@ namespace DistributedCache.Services.Implementations;
 internal sealed class RedisDistributedCache(
    IRedisClient redisClient,
    IOptions<CacheConfigurationOptions> options,
-   IDistributedLockService distributedLockService,
-   ILogger<RedisDistributedCache> logger) : HybridCache
+   IDistributedLockService distributedLockService) : HybridCache
 {
    private readonly CacheConfigurationOptions _config = options.Value;
    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
@@ -25,16 +23,9 @@ internal sealed class RedisDistributedCache(
       IEnumerable<string>? tags = null,
       CancellationToken cancellationToken = default)
    {
-      if (options?.Flags is not null)
-      {
-         logger.LogWarning("HybridCacheEntryFlags are not implemented by Pandatech.DistributedCache.");
-      }
-
       var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
-
       var lockValue = Guid.NewGuid()
                           .ToString();
-
 
       while (true)
       {
@@ -52,9 +43,7 @@ internal sealed class RedisDistributedCache(
          if (cacheStore is not null)
          {
             if (cacheStore.Tags.Count is 0)
-            {
                return cacheStore.Data;
-            }
 
             var cacheInvalidated = false;
 
@@ -63,9 +52,7 @@ internal sealed class RedisDistributedCache(
                var tagStore = await _redisDatabase.GetAsync<TagStore>(tagKey);
 
                if (tagStore is null || tagStore.CreatedAt <= cacheStore.CreatedAt)
-               {
                   continue;
-               }
 
                await _redisDatabase.RemoveAsync(prefixedKey);
                cacheInvalidated = true;
@@ -73,10 +60,7 @@ internal sealed class RedisDistributedCache(
             }
 
             if (cacheInvalidated)
-            {
                continue;
-            }
-
 
             return cacheStore.Data;
          }
@@ -104,14 +88,13 @@ internal sealed class RedisDistributedCache(
       }
    }
 
-
    public override async ValueTask SetAsync<T>(string key,
       T value,
       HybridCacheEntryOptions? options = null,
       IEnumerable<string>? tags = null,
       CancellationToken cancellationToken = default)
    {
-      if (options != null && options.Flags != null &&
+      if (options?.Flags is not null &&
           (options.Flags & (HybridCacheEntryFlags.DisableDistributedCache |
                             HybridCacheEntryFlags.DisableLocalCache |
                             HybridCacheEntryFlags.DisableDistributedCacheWrite |
@@ -121,24 +104,18 @@ internal sealed class RedisDistributedCache(
       }
 
       var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
-
       var expirationTime = options?.Expiration ?? _config.DefaultExpiration;
-
 
       var cacheStore = new CacheStore<T>
       {
          Data = value,
-         Tags = (tags ?? Array.Empty<string>()).ToList()
+         Tags = (tags ?? []).ToList()
       };
 
       if (expirationTime == TimeSpan.MaxValue)
-      {
          await _redisDatabase.AddAsync(prefixedKey, cacheStore);
-      }
       else
-      {
          await _redisDatabase.AddAsync(prefixedKey, cacheStore, expirationTime);
-      }
    }
 
    public override async ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default)
