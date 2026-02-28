@@ -8,23 +8,19 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace DistributedCache.Services.Implementations;
 
-public class RedisRateLimitService(
+internal sealed class RedisRateLimitService(
    IRedisClient redisClient,
    IOptions<CacheConfigurationOptions> options,
    IDistributedLockService lockService) : IRateLimitService
 {
    private readonly CacheConfigurationOptions _config = options.Value;
-
-
    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
 
    public async ValueTask<RateLimitState> RateLimitAsync(RateLimitConfiguration rateLimitConfiguration,
       CancellationToken cancellationToken = default)
    {
       var key = CacheKeyFormatter.BuildPrefixedKey(rateLimitConfiguration.GetKey(), _config);
-
-      var lockValue = Guid.NewGuid()
-                          .ToString();
+      var lockValue = Guid.NewGuid().ToString();
 
       while (true)
       {
@@ -60,8 +56,7 @@ public class RedisRateLimitService(
             return new RateLimitState(
                RateLimitStatus.NotExceeded,
                rateLimitConfiguration.TimeToLive,
-               rateLimitConfiguration.MaxAttempts - 1
-            );
+               rateLimitConfiguration.MaxAttempts - 1);
          }
 
          var isUpdated = cache.TryUpdateAttempts();
@@ -72,8 +67,7 @@ public class RedisRateLimitService(
             return new RateLimitState(
                RateLimitStatus.Exceeded,
                newExpiration,
-               0
-            );
+               0);
          }
 
          await _redisDatabase.AddAsync(key, cache, newExpiration);
@@ -81,8 +75,7 @@ public class RedisRateLimitService(
          return new RateLimitState(
             RateLimitStatus.NotExceeded,
             newExpiration,
-            cache.MaxAttempts - cache.Attempts
-         );
+            cache.MaxAttempts - cache.Attempts);
       }
       finally
       {

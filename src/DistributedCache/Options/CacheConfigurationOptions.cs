@@ -2,7 +2,7 @@
 
 public class CacheConfigurationOptions
 {
-   public required string RedisConnectionString { get; set; } = null!;
+   public required string RedisConnectionString { get; set; }
    public string? ChannelPrefix { get; set; }
    public int ConnectRetry { get; set; } = 10;
    public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
