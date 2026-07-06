@@ -14,8 +14,8 @@ builder.Services.AddScoped<SendSmsService>();
 
 builder.AddDistributedCache(o =>
 {
-   o.RedisConnectionString = "localhost:6379";
-   o.ChannelPrefix = "app_name";
+    o.RedisConnectionString = "localhost:6379";
+    o.ChannelPrefix = "app_name";
 });
 
 var app = builder.Build();
