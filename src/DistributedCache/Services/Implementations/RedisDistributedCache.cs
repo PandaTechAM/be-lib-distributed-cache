@@ -9,124 +9,134 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 namespace DistributedCache.Services.Implementations;
 
 internal sealed class RedisDistributedCache(
-   IRedisClient redisClient,
-   IOptions<CacheConfigurationOptions> options,
-   IDistributedLockService distributedLockService) : HybridCache
+    IRedisClient redisClient,
+    IOptions<CacheConfigurationOptions> options,
+    IDistributedLockService distributedLockService) : HybridCache
 {
-   private readonly CacheConfigurationOptions _config = options.Value;
-   private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
+    private readonly CacheConfigurationOptions _config = options.Value;
+    private readonly IRedisDatabase _redisDatabase = redisClient.GetDefaultDatabase();
 
-   public override async ValueTask<T> GetOrCreateAsync<TState, T>(string key,
-      TState state,
-      Func<TState, CancellationToken, ValueTask<T>> factory,
-      HybridCacheEntryOptions? options = null,
-      IEnumerable<string>? tags = null,
-      CancellationToken cancellationToken = default)
-   {
-      var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
-      var lockValue = Guid.NewGuid()
-                          .ToString();
+    public override async ValueTask<T> GetOrCreateAsync<TState, T>(string key,
+        TState state,
+        Func<TState, CancellationToken, ValueTask<T>> factory,
+        HybridCacheEntryOptions? options = null,
+        IEnumerable<string>? tags = null,
+        CancellationToken cancellationToken = default)
+    {
+        var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
+        var lockValue = Guid.NewGuid()
+            .ToString();
 
-      while (true)
-      {
-         cancellationToken.ThrowIfCancellationRequested();
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
-         var isLocked = await distributedLockService.HasLockAsync(prefixedKey);
+            var isLocked = await distributedLockService.HasLockAsync(prefixedKey);
 
-         if (isLocked)
-         {
-            await distributedLockService.WaitUntilLockIsReleasedAsync(prefixedKey, cancellationToken);
-            continue;
-         }
-
-         var cacheStore = await _redisDatabase.GetAsync<CacheStore<T>>(prefixedKey);
-         if (cacheStore is not null)
-         {
-            if (cacheStore.Tags.Count is 0)
-               return cacheStore.Data;
-
-            var cacheInvalidated = false;
-
-            foreach (var tagKey in cacheStore.Tags.Select(tag => CacheKeyFormatter.BuildTagKey(tag, _config)))
+            if (isLocked)
             {
-               var tagStore = await _redisDatabase.GetAsync<TagStore>(tagKey);
-
-               if (tagStore is null || tagStore.CreatedAt <= cacheStore.CreatedAt)
-                  continue;
-
-               await _redisDatabase.RemoveAsync(prefixedKey);
-               cacheInvalidated = true;
-               break;
+                await distributedLockService.WaitUntilLockIsReleasedAsync(prefixedKey, cancellationToken);
+                continue;
             }
 
-            if (cacheInvalidated)
-               continue;
+            var cacheStore = await _redisDatabase.GetAsync<CacheStore<T>>(prefixedKey);
+            if (cacheStore is not null)
+            {
+                if (cacheStore.Tags.Count is 0)
+                {
+                    return cacheStore.Data;
+                }
 
-            return cacheStore.Data;
-         }
+                var cacheInvalidated = false;
 
-         var lockAcquired = await distributedLockService.AcquireLockAsync(prefixedKey, lockValue);
+                foreach (var tagKey in cacheStore.Tags.Select(tag => CacheKeyFormatter.BuildTagKey(tag, _config)))
+                {
+                    var tagStore = await _redisDatabase.GetAsync<TagStore>(tagKey);
 
-         if (!lockAcquired)
-         {
-            await distributedLockService.WaitUntilLockIsReleasedAsync(prefixedKey, cancellationToken);
-            continue;
-         }
+                    if (tagStore is null || tagStore.CreatedAt <= cacheStore.CreatedAt)
+                    {
+                        continue;
+                    }
 
-         break;
-      }
+                    await _redisDatabase.RemoveAsync(prefixedKey);
+                    cacheInvalidated = true;
+                    break;
+                }
 
-      try
-      {
-         var value = await factory(state, cancellationToken);
-         await SetAsync(key, value, options, tags, cancellationToken);
-         return value;
-      }
-      finally
-      {
-         await distributedLockService.ReleaseLockAsync(prefixedKey, lockValue);
-      }
-   }
+                if (cacheInvalidated)
+                {
+                    continue;
+                }
 
-   public override async ValueTask SetAsync<T>(string key,
-      T value,
-      HybridCacheEntryOptions? options = null,
-      IEnumerable<string>? tags = null,
-      CancellationToken cancellationToken = default)
-   {
-      if (options?.Flags is not null &&
-          (options.Flags & (HybridCacheEntryFlags.DisableDistributedCache |
-                            HybridCacheEntryFlags.DisableLocalCache |
-                            HybridCacheEntryFlags.DisableDistributedCacheWrite |
-                            HybridCacheEntryFlags.DisableLocalCacheWrite)) != 0)
-      {
-         return;
-      }
+                return cacheStore.Data;
+            }
 
-      var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
-      var expirationTime = options?.Expiration ?? _config.DefaultExpiration;
+            var lockAcquired = await distributedLockService.AcquireLockAsync(prefixedKey, lockValue);
 
-      var cacheStore = new CacheStore<T>
-      {
-         Data = value,
-         Tags = (tags ?? []).ToList()
-      };
+            if (!lockAcquired)
+            {
+                await distributedLockService.WaitUntilLockIsReleasedAsync(prefixedKey, cancellationToken);
+                continue;
+            }
 
-      if (expirationTime == TimeSpan.MaxValue)
-         await _redisDatabase.AddAsync(prefixedKey, cacheStore);
-      else
-         await _redisDatabase.AddAsync(prefixedKey, cacheStore, expirationTime);
-   }
+            break;
+        }
 
-   public override async ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default)
-   {
-      var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
-      await _redisDatabase.RemoveAsync(prefixedKey);
-   }
+        try
+        {
+            var value = await factory(state, cancellationToken);
+            await SetAsync(key, value, options, tags, cancellationToken);
+            return value;
+        }
+        finally
+        {
+            await distributedLockService.ReleaseLockAsync(prefixedKey, lockValue);
+        }
+    }
 
-   public override async ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken = default)
-   {
-      var tagKey = CacheKeyFormatter.BuildTagKey(tag, _config);
-      await _redisDatabase.AddAsync(tagKey, new TagStore());
-   }
+    public override async ValueTask SetAsync<T>(string key,
+        T value,
+        HybridCacheEntryOptions? options = null,
+        IEnumerable<string>? tags = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (options?.Flags is not null &&
+            (options.Flags & (HybridCacheEntryFlags.DisableDistributedCache |
+                              HybridCacheEntryFlags.DisableLocalCache |
+                              HybridCacheEntryFlags.DisableDistributedCacheWrite |
+                              HybridCacheEntryFlags.DisableLocalCacheWrite)) != 0)
+        {
+            return;
+        }
+
+        var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
+        var expirationTime = options?.Expiration ?? _config.DefaultExpiration;
+
+        var cacheStore = new CacheStore<T>
+        {
+            Data = value,
+            Tags = (tags ?? []).ToList()
+        };
+
+        if (expirationTime == TimeSpan.MaxValue)
+        {
+            await _redisDatabase.AddAsync(prefixedKey, cacheStore);
+        }
+        else
+        {
+            await _redisDatabase.AddAsync(prefixedKey, cacheStore, expirationTime);
+        }
+    }
+
+    public override async ValueTask RemoveAsync(string key, CancellationToken cancellationToken = default)
+    {
+        var prefixedKey = CacheKeyFormatter.BuildPrefixedKey(key, _config);
+        await _redisDatabase.RemoveAsync(prefixedKey);
+    }
+
+    public override async ValueTask RemoveByTagAsync(string tag, CancellationToken cancellationToken = default)
+    {
+        var tagKey = CacheKeyFormatter.BuildTagKey(tag, _config);
+        await _redisDatabase.AddAsync(tagKey, new TagStore());
+    }
 }
